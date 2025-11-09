@@ -48,6 +48,8 @@ export type { APIFirstRouterConfig } from './routers/api-first-router';
 export { createGPUDetector } from './utils/gpu-factory';
 export { CostTracker, getCostTracker } from './utils/cost-tracker';
 export type { CostEntry, MonthlySummary } from './utils/cost-tracker';
+export { createProvider, isProviderAvailable, getAvailableProviders } from './utils/provider-factory';
+export type { ProviderFactoryConfig } from './utils/provider-factory';
 
 // Version
 export const VERSION = '0.1.0';

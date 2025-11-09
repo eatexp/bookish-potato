@@ -37,6 +37,9 @@ program
   .option('--explain', 'Show detailed routing rationale and alternatives')
   .option('--router <name>', 'Specify router to use (simple, cost-aware, api-first)', 'cost-aware')
   .option('--config <path>', 'Path to routing configuration file')
+  .option('--stream', 'Stream response in real-time')
+  .option('--temperature <value>', 'Sampling temperature (0-2)', parseFloat)
+  .option('--max-tokens <value>', 'Maximum tokens to generate', parseInt)
   .action(routeCommand);
 
 // Security hardening commands
