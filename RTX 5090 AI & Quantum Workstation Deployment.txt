@@ -1,0 +1,166 @@
+Standard Operating Procedure: RTX 5090 AI & Quantum Workstation Deployment
+
+1.0 Document Purpose and Scope
+
+1.1 Purpose
+
+This Standard Operating Procedure (SOP) provides a formal, replicable methodology for the configuration and maintenance of a specialized workstation equipped with the NVIDIA RTX 5090 GPU. The procedure is designed for a professional research and development environment, establishing a baseline for security, performance, and stability for both Artificial Intelligence (AI) and Quantum Simulation workloads. Adherence to this SOP ensures that high-value computing assets are deployed consistently and managed effectively throughout their lifecycle.
+
+1.2 Scope and Target Audience
+
+This SOP covers the full lifecycle of the workstation, including initial software installation, security hardening, performance tuning, secure remote access configuration, and ongoing maintenance protocols. The intended audience includes systems administrators, DevOps engineers, and researchers responsible for deploying and managing high-performance computing assets.
+
+This procedure begins with the foundational driver and software installation necessary to enable all subsequent capabilities.
+
+2.0 Foundational Software & Driver Installation
+
+2.1 Introduction
+
+The NVIDIA driver and CUDA toolkit form the foundational software layer for all GPU-accelerated tasks. This layer acts as the critical bridge between the operating system and the RTX 5090 hardware. Correct installation and environment path configuration are non-negotiable prerequisites for enabling the GPU's advanced features and ensuring that high-level development frameworks can access its full computational power.
+
+2.2 Blackwell Driver & CUDA Toolkit Installation Procedure
+
+1. Install NVIDIA Driver: Install the NVIDIA 570+ series driver. The explicit purpose of this step is to expose the sm_120 compute capability unique to the Blackwell architecture, making the RTX 5090's core features visible to the system.
+2. Install CUDA Toolkit: Install the CUDA 12.8 toolkit. This provides the necessary libraries, compiler (nvcc), and development tools for building and running GPU-accelerated applications.
+3. Verify Installation: Open a terminal and execute the command nvidia-smi. The expected output must confirm the presence of the RTX 5090, its 32 GB of VRAM, and a reported CUDA runtime version of 12.9. This confirms that the driver and hardware are communicating correctly.
+4. Configure Environment Variables: Correctly set the PATH and LD_LIBRARY_PATH environment variables to point to the new CUDA installation directories. This step is critical; it guarantees that development tools like PyTorch and vLLM can dynamically link against the new Blackwell libraries, which is essential to unlock advanced features like the fifth-generation Tensor Cores and native FP4/FP8 support.
+
+With the foundational driver and CUDA toolkit successfully installed and verified, the next step is to configure the AI-specific development environment.
+
+3.0 AI Development Environment Configuration
+
+3.1 Introduction
+
+With the drivers in place, the next logical step is to build and validate a State-of-the-Art (SOTA) AI software stack. This process moves beyond basic hardware verification to ensure the system can be effectively utilized for high-level tasks, such as Large Language Model (LLM) inference and cross-platform application deployment. The following steps confirm the entire software-to-hardware pipeline is functional.
+
+3.2 PyTorch and Hugging Face Installation and Validation
+
+3.2.1 Installation
+
+1. Install a PyTorch nightly build specifically compiled for the Blackwell architecture's sm_120 compute capability using the following command:
+2. Install the Hugging Face transformers library:
+
+3.2.2 Validation
+
+To confirm end-to-end functionality, perform a validation test by loading a Llama-8B model using device_map=auto. This test validates the end-to-end functionality of the system, confirming kernel availability, CUDA context, and Hugging Face integration are fully operational before deploying production workloads. Successfully loading the model and holding its full FP16 weights within the 32 GB of VRAM validates the workstation's readiness for production tasks.
+
+3.3 Workflow for Interactive Development and Deployment
+
+The recommended workflow supports both rapid prototyping and efficient deployment. Interactive development should begin in Jupyter notebooks for model prototyping. Once a model is finalized, it must be exported to the ONNX format. This standardized format allows the model to be run on Windows ML via the TensorRT provider, yielding a performance increase of over 50% compared to using DirectML on the RTX 5090.
+
+This stack presents a significant strategic advantage: it enables both Linux-based model training and Windows-based client deployment without requiring code rewrites. The entire workflow leverages mixed precision (FP16/FP8) computation, which is specifically tuned for the Blackwell architecture to maximize performance.
+
+This completes the AI stack configuration, leading to the parallel setup required for quantum simulation workloads.
+
+4.0 Quantum Simulation Environment Configuration
+
+4.1 Introduction
+
+This section details the configuration of the quantum computing software stack, a critical component of the workstation's hybrid design. The following tools and libraries are designed to leverage the RTX 5090's substantial VRAM and parallel processing capabilities, delivering significant speed-ups over traditional CPU-based quantum simulators.
+
+4.2 Core Quantum SDKs
+
+Component	Installation & Purpose
+cuQuantum SDK	Download the SDK from the NVIDIA developer portal and install it via conda-forge or by compiling from source. It provides two critical backends for high-performance simulation: cuStateVec for state-vector simulations and cuTensorNet for tensor-network methods. Verification involves compiling and running the provided sample circuits to confirm that 40+ qubit simulations can execute entirely within the RTX 5090's VRAM, accelerating quantum chemistry and optimization problems.
+CUDA-Q Platform	This platform unifies popular front-ends like Qiskit, Cirq, and PennyLane. Its key advantage is that a single compiled binary can seamlessly switch between the local RTX 5090 GPU simulator and cloud-based ion-trap quantum hardware. The platform also includes libraries for multi-GPU scaling and quantum-machine-learning research, delivered within a single container.
+
+4.3 Integration with Python Frameworks
+
+A primary benefit of this software stack is its seamless integration with popular Python-based quantum frameworks. To connect these frameworks to the GPU backend, developers only need to specify the correct device, requiring no changes to their existing source code.
+
+* Qiskit: To route circuits through the high-performance cuStateVec backend, install the GPU-enabled library (pip install qiskit-aer-gpu) and set the simulation backend to aer_simulator_statevector_gpu.
+* PennyLane: The pennylane-cuquantum integration package automatically maps the lightning.gpu device to the RTX 5090 for accelerated computation.
+
+The key takeaway is that these integrations enable dramatic performance gains with minimal effort. A single-line backend switch is all that is required to accelerate tasks like 30-qubit quantum machine learning training loops directly within a Python notebook environment.
+
+With both the AI and quantum software stacks configured, we now turn to the critical procedures for system security hardening.
+
+5.0 System and Security Hardening Protocols
+
+5.1 Introduction
+
+A high-performance AI workstation is a high-value asset, making a multi-layered security posture strategically important. This section details mandatory hardening procedures designed to protect the system at the GPU, operating system, and network levels. These protocols are intended to mitigate a range of threats, from low-level hardware exploits to sophisticated data exfiltration attempts.
+
+5.2 GPU-Targeted Exploit Mitigations
+
+* Hardware-Level Protection: Enable on-die ECC memory to automatically correct single-bit memory flips. The system must be equipped with TRR-enabled DRAM to neutralize Rowhammer-style hardware attacks.
+* Driver & Kernel Security: Mandate the installation of NVIDIA driver version 570.86.16 or newer to ensure all publicly disclosed CVEs are patched. All operating system kernels must be cryptographically signed and verified at boot to block the loading of potential GPU rootkits.
+* API Access Control: Implement SELinux policies to strictly control access to the GPU's programming interface. These policies must ensure that only authorized containers with a need-GPU label are permitted to load the nvidia-uvm kernel module.
+
+5.3 System and Network Control Policies
+
+* Access Control: Deploy Role-Based Access Control (RBAC) to enforce the principle of least privilege. Specifically, developers must be prevented from using sudo privileges to load unsigned kernel modules.
+* Data Isolation: All training data must be stored in encrypted ZFS datasets. These datasets must be configured with a daily snapshot policy to enable rapid recovery and integrity verification.
+* Network Access Control: Enforce 802.1X Network Access Control (NAC) on the workstation's physical network interface. Furthermore, communication must be protected by MACsec tunnels to prevent rogue devices on the network from injecting poisoned datasets or exfiltrating 32 GB model weights during inference.
+
+These proactive security measures form the foundation for a secure system, allowing us to shift focus to performance tuning and reliability engineering.
+
+6.0 Performance Optimization & Reliability Tuning
+
+6.1 Introduction
+
+Once the workstation is secured and operationally verified, the focus shifts to extracting maximum performance and ensuring long-term reliability. This involves actively tuning memory usage patterns, managing the hardware's thermal and power envelopes, and understanding the operational limits of the platform to ensure its longevity and return on investment.
+
+6.2 Tensor-Core and Memory Tuning Techniques
+
+To maximize computational throughput, enable Automatic Mixed Precision (AMP) with autocasting to FP8 data types. This technique leverages the fifth-generation Tensor Cores to deliver a 4× increase in matrix multiplication throughput. For training large models, use gradient-checkpointing and activation recomputation; these techniques intelligently trade computation for memory, making it possible to fit models with up to 80 layers within the 32 GB VRAM limit. Finally, use the cudaMemAdviseSetReadMostly directive to signal the CUDA driver to place read-only data, such as model weights, in the GPU's L2 cache. This reduces traffic over the PCIe bus and helps raise sustained AI + quantum emulation clocks to 2.6 GHz.
+
+6.3 Thermal and Power Governance Procedures
+
+The following settings and monitoring actions are mandatory for maintaining system stability during sustained high-performance computing loads.
+
+Parameter	Requirement / Action
+Power Limit	Set the nvidia-smi power limit to 450 W.
+Thermal Target	Optimize the system's fan curve to maintain a GPU temperature below 75 °C to avoid thermal throttling.
+System Hardware	A liquid cooling loop and a redundant Power Supply Unit (PSU) are necessary to support 24-hour HPC loads.
+Monitoring & Alerts	Use the NVIDIA Management Library (NVML) to continuously monitor thermals and power draw. Configure an alert to trigger if temperatures reach 83 °C or if power excursions exceed 5% of the set limit.
+Automated Response	An automated job pause mechanism must be implemented. This mechanism must trigger on alert conditions to prevent silicon degradation, extending the RTX 5090 lifespan beyond a three-year ROI.
+
+6.4 Consumer vs. Datacenter Limitations
+
+It is critical to acknowledge the operational constraints of the RTX 5090 platform. As a consumer-grade card, it lacks features such as SR-IOV for GPU virtualization and double-precision parity for error-checking in scientific computing. Therefore, its role must be clearly defined: it is intended for prototyping, high-throughput FP8 inference, and quantum simulations under 40 qubits. Any workloads requiring sustained FP64 precision or GPU virtualization must be migrated to datacenter-grade hardware like the L40 or H100. It is mandatory to document duty-cycle limits in this SOP so researchers schedule long jobs appropriately and avoid warranty conflicts.
+
+Having tuned the workstation for local performance, we now address the procedures for establishing secure remote access.
+
+7.0 Secure Remote Access Protocol via Whonix/Tor
+
+7.1 Introduction
+
+The objective of this section is to establish a secure, high-performance remote access channel to the RTX 5090's CUDA cores from a privacy-focused Whonix environment. The core challenge is bridging a Windows-based GPU host with a Tor-routed Linux virtual machine without compromising the user's anonymity or the security of the host system. This protocol achieves that by encapsulating all communication within the Tor network.
+
+7.2 Host Preparation Procedure (Windows)
+
+1. CUDA Server Layer: On the Windows host, install the NVIDIA 570 driver, CUDA 12.8, and the associated toolkit. Create a minimal REST or gRPC AI service that binds only to the local loopback address 127.0.0.1:8444. This critical step transforms the host into an encrypted compute node that can only accept requests originating from itself, without exposing any service ports to the local network or the internet (clearnet).
+2. Firewall Hardening: In Windows Defender Firewall, block all inbound rules by default. Then, create a single, highly specific "allow" rule that permits traffic exclusively to port 8444 on the 127.0.0.1 address.
+3. Service Hardening: The AI service must be configured to run as a low-privilege user account. This account must have no Remote Desktop Protocol (RDP) or Server Message Block (SMB) tokens, which severely minimizes the risk of lateral movement in the event of a service compromise.
+
+7.3 Tor Tunnel Configuration
+
+* Windows Host (Hidden Service): Configure tor.exe on the Windows host to publish a hidden service. This service should be configured to forward traffic from a persistent .onion address to the local port 8444. The private key for this hidden service must be generated and stored securely offline.
+* Whonix-Gateway (Routing): On the Whonix-Gateway VM, create a TCP client stream isolation rule. The purpose of this rule is to map the Whonix-Workstation user to a fresh, dedicated Tor circuit for all traffic destined for the GPU's .onion address. This prevents AI inference requests from being correlated with any other network traffic originating from the VM, preserving unlinkability.
+
+7.4 Client Setup and Usage (Whonix-Workstation)
+
+* Client Configuration: Inside the Whonix-Workstation VM, install a simple HTTP client like python-requests or curl. No local NVIDIA drivers are required. To route API calls through the Tor network, export the following environment variable: HTTP_PROXY=socks5h://10.137.0.1:9100. API calls can then be made directly to the workstation's .onion URL.
+* API Credit Integration: To manage access and billing, each API request must include an HMAC header. This header is signed by a cryptographic key shared offline between the host and the client. The Windows service validates this header before processing a request and returns a 402 Payment Required status code if the user's credits are exhausted.
+* Performance Optimization: To achieve high performance over the Tor network, batch multiple prompts into a single, compressed payload. This reduces the number of network round-trips. The server should stream responses back using chunked JSON, allowing the client to render partial results as they arrive. This combination of techniques keeps latency under 2 seconds per image.
+
+The final phase of this SOP addresses the continuous monitoring and maintenance required to keep this entire system secure and functional.
+
+8.0 Continuous Monitoring and Maintenance
+
+8.1 Introduction
+
+Deployment is not the final step in the workstation's lifecycle. Continuous monitoring and a disciplined maintenance playbook are essential for ensuring the long-term security, performance, and integrity of both the local workstation hardware and the secure remote access pipeline. Proactive management prevents degradation and ensures the system remains a reliable asset.
+
+8.2 Continuous Monitoring Protocol
+
+* System Updates: On a weekly schedule, run fwupd to check for firmware updates and manually check for NVIDIA driver updates.
+* Threat Detection: Use Prometheus with the DCGM (Datacenter GPU Manager) exporter to monitor GPU metrics. Configure an alert to fire if GPU utilization exceeds 95% for more than 10 minutes outside of scheduled lab hours, as this may be an indicator of covert crypto-mining malware.
+* Physical Security: Chassis intrusion sensor and Kensington lock must be used to protect the 200 W card. All system logs must be streamed to a central SIEM (Security Information and Event Management) platform to provide tamper evidence and support compliance auditing.
+
+8.3 Remote Access Verification & Maintenance Playbook
+
+1. Nightly Testing: A pytest suite must be executed nightly from within the Whonix environment. This test must upload a batch to the hidden service, assert <15 s per 1024×1024 Flux sample, and verify the cryptographic integrity of the response HMAC. The results must be appended to an encrypted local log file for auditing.
+2. Update Procedure: Any Windows driver upgrades must be performed within a VeraCrypt volume snapshot to allow for a clean rollback. Crucially, the new .onion public key must be securely exported to an encrypted USB share over Tor before applying updates.
+3. Post-Update Verification: After any system or driver update, the full test matrix must be re-run to provide end-to-end verification that the entire remote access pipeline remains functional, performant, and secure.
