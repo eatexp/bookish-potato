@@ -1,0 +1,51 @@
+Based on the comprehensive research and optimization guides for the RTX 5090 hybrid AI workstation, the "best tools determined to be installed and used" fall into several distinct categories covering autonomous agents, local model management, specialized local models, and essential paid APIs.
+
+The core strategy focuses on a **hybrid system** that utilizes the RTX 5090’s 32GB VRAM for speed-critical local tasks while reserving powerful, specialized paid APIs for tasks that demand state-of-the-art (SOTA) performance.
+
+---
+
+### I. Autonomous Agent and Local Model Management
+
+The workflow is centered around an autonomous agent that acts as a command center, supported by local inference backends:
+
+| Tool Category | Recommended Tools | Key Function & Rationale |
+| :--- | :--- | :--- |
+| **Autonomous Coding Agent** | **Cline (cline.bot)** (VS Code extension) | **The best choice** and **perfect flexible interface** for the hybrid setup. Cline is explicitly designed for local model integration via Ollama/LM Studio and supports seamless switching to paid APIs mid-session. |
+| **Local Model Backend** | **Ollama** or **LM Studio** | These applications simplify the downloading and running of local Large Language Models (LLMs). They serve as the bridge between Cline and your local models and use optimized `llama.cpp` for RTX 5090 Tensor Core support. |
+| **Agent Configuration** | **Qwen3-Coder-30B** is the **critical default model** to load in Ollama. | The **Cline team officially recommends** Qwen3-Coder-30B, and it is the community-voted best model for Cline. |
+
+***Note on Cline Security:** A **prompt injection vulnerability exists in Cline itself**; therefore, you must run it on untrusted repositories only within sandboxing tools like Docker containers or VMs. Manual approval of commands must be ensured.*
+
+### II. Recommended Local LLMs (Under 32GB VRAM)
+
+The goal is to fit models entirely in the 32GB VRAM for maximum speed, focusing on the 30B-70B parameter range.
+
+| Model Name | Quantization/VRAM | Primary Use Case | Performance Expectation |
+| :--- | :--- | :--- | :--- |
+| **Qwen3-Coder-30B-A3B-Instruct** | Q4\_K\_M (~16-18GB VRAM) | **Primary agent work**, autonomous coding, file editing, and CLI operations via Cline. | **80-90 tokens/sec**. |
+| **Llama 3.1 70B Instruct** | **IQ2\_XS 2-bit** (~21GB VRAM) | **Heavy duty reasoning**, deep code review, novel bug pattern detection, and security audit planning. | **60-70 tokens/sec**. |
+| **granite-8b-qiskit** | Q4\_K\_M (<10GB VRAM) | **Quantum specialist** for Qiskit code analysis, qubit bug detection, and quantum software linting. | **200+ tokens/sec**. |
+| **DeepSeek-Coder-V2-Lite (16B)** | Q4\_K\_M (Fast Inference) | Specialized for code generation and understanding; effective for **static security analysis** and spotting vulnerability patterns. | ~50-60 tokens/sec. |
+
+***Quantization Recommendation:** While GGUF (used by Ollama/LM Studio) is standard for flexibility, AWQ 4-bit or EXL2 quantization is recommended for **pure GPU inference** on the 5090, potentially delivering 20-40% faster throughput than GGUF.*
+
+### III. Paid API Strategy (For SOTA Performance)
+
+For the 20% of tasks requiring performance that exceeds local constraints, paid APIs are essential. These APIs are integrated directly into the **Cline** agent.
+
+| API Model | Primary Use Case | Cost Rationale |
+| :--- | :--- | :--- |
+| **Claude 4.1 Opus** | **Debugging large codebases**, finding complex logic flaws, audit-style bug hunting, and deep code review. | Excels at complex, multi-file software engineering. |
+| **GPT-5** | **Theoretical quantum vulnerability analysis**, novel cryptographic attacks, superior multi-step reasoning, and zero-day discovery. | Lower hallucination rates and high reasoning quality. |
+| **Gemini 2.5 Pro** | General security tasks and **large-scale codebase analysis** (due to its 1 million token context window). | Cost-effective alternative for broad tasks. |
+| **Budget APIs** (e.g., DeepInfra, Groq) | High-volume reconnaissance, bulk code analysis, and high-speed, real-time debugging. | DeepInfra offers highly competitive pricing ($0.14-$1/M tokens). |
+
+### IV. Foundational Software and Environment
+
+For the RTX 5090 based on the new Blackwell architecture, specific foundational tools are required for compatibility and peak performance:
+
+*   **Operating System:** A modern Linux distribution (e.g., Ubuntu 22.04 or later).
+*   **NVIDIA Driver:** Versions from the **570 series or newer** are required (e.g., 570.133.07, 575 series) for proper hardware recognition.
+*   **CUDA Toolkit:** **Version 12.8 or newer is the minimum required** to support the Blackwell architecture (`sm_120` compute capability).
+*   **Deep Learning Frameworks:** Installing a **nightly build of PyTorch** (e.g., compiled for CUDA 12.8) is necessary to ensure compatibility with the new architecture, as stable releases may not initially support the RTX 5090.
+*   **Quantum SDKs:** For advanced quantum research, the **NVIDIA cuQuantum SDK** (including **cuStateVec** and **cuTensorNet**) and the **CUDA-Q** platform enable accelerated quantum circuit simulations using the GPU.
