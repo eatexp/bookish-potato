@@ -12,6 +12,15 @@ export type {
   ModelRouter,
   ModelPricing,
 } from './core/model-router';
+export type {
+  ModelProvider,
+  InferenceParams,
+  InferenceResponse,
+  StreamChunk,
+  ProviderHealth,
+  LocalProviderConfig,
+  APIProviderConfig,
+} from './core/model-provider';
 // export { HardeningCheck, CheckResult } from './core/hardening-check';
 
 // GPU Providers
@@ -21,6 +30,11 @@ export { NvidiaSMIProvider } from './providers/nvidia-smi-provider';
 export type { NvidiaSMIConfig } from './providers/nvidia-smi-provider';
 export { NVMLProvider } from './providers/nvml-provider';
 export type { NVMLConfig } from './providers/nvml-provider';
+
+// Model Providers
+export { OllamaProvider } from './providers/ollama-provider';
+export { AnthropicProvider } from './providers/anthropic-provider';
+export { OpenAIProvider } from './providers/openai-provider';
 
 // Model Routers
 export { SimpleRouter } from './routers/simple-router';
