@@ -71,7 +71,7 @@ export class SimulatedGPUProvider extends BaseGPUProvider {
     return metrics;
   }
 
-  async healthCheck(): Promise<HealthCheckResult> {
+  override async healthCheck(): Promise<HealthCheckResult> {
     return {
       healthy: true,
       reason: 'Using simulated metrics (no physical GPU detected)',

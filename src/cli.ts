@@ -18,7 +18,15 @@ program
   .description('Display GPU metrics and detection information')
   .option('--json', 'Output in JSON format')
   .option('--watch', 'Continuously monitor GPU metrics')
-  .action(gpuInfoCommand);
+  .option('--interval <seconds>', 'Refresh interval for watch mode in seconds (default: 1)', '1')
+  .action((options) => {
+    // Parse interval to number
+    const parsedOptions = {
+      ...options,
+      interval: parseInt(options.interval, 10),
+    };
+    return gpuInfoCommand(parsedOptions);
+  });
 
 // Model routing command
 program

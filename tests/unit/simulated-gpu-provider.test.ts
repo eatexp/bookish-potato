@@ -122,16 +122,14 @@ describe('SimulatedGPUProvider', () => {
       expect(metrics.vramUsed + metrics.vramFree).toBeCloseTo(metrics.vramTotal, 1);
     });
 
-    it('should reject invalid configuration', async () => {
-      // Provider should handle this gracefully or validate in constructor
-      const provider = new SimulatedGPUProvider({
-        vramTotal: 32,
-        vramUsed: 40, // More than total - should be clamped or error
-      });
-
-      // Should either throw or clamp to valid range
-      const metricsPromise = provider.getMetrics();
-      await expect(metricsPromise).rejects.toThrow();
+    it('should reject invalid configuration', () => {
+      // Provider should throw in constructor when configuration is invalid
+      expect(() => {
+        new SimulatedGPUProvider({
+          vramTotal: 32,
+          vramUsed: 40, // More than total - should throw error
+        });
+      }).toThrow('Invalid vramUsed: 40 exceeds vramTotal: 32');
     });
   });
 
