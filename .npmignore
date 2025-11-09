@@ -1,0 +1,32 @@
+# Source files (only publish built dist/)
+src/
+tests/
+*.ts
+!*.d.ts
+
+# Configuration
+tsconfig.json
+jest.config.js
+.eslintrc.js
+.prettierrc
+.commitlintrc.js
+
+# Documentation (keep README, LICENSE)
+docs/adrs/
+*.md
+!README.md
+!LICENSE
+
+# CI/CD
+.github/
+.husky/
+
+# Development
+coverage/
+.nyc_output/
+node_modules/
+
+# Misc
+.DS_Store
+*.log
+.env*
