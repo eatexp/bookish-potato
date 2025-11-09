@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Workflow - RTX 5090 Optimization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0f0f0f;
+            --secondary-dark: #1a1a1a;
+            --copper: #b8860b;
+            --electric-blue: #00d4ff;
+            --text-light: #e0e0e0;
+            --text-gray: #a0a0a0;
+        }
+        
+        body {
+            font-family: 'Source Sans Pro', sans-serif;
+            background: var(--primary-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        
+        .performance-card {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid rgba(184, 134, 11, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .performance-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--copper);
+            box-shadow: 0 20px 40px rgba(184, 134, 11, 0.1);
+        }
+        
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--copper);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        
+        .workflow-step {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .workflow-step:hover {
+            transform: scale(1.02);
+        }
+        
+        .workflow-step::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -20px;
+            width: 0;
+            height: 0;
+            border-left: 15px solid var(--copper);
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            transform: translateY(-50%);
+        }
+        
+        .workflow-step:last-child::before {
+            display: none;
+        }
+        
+        .cost-calculator {
+            background: rgba(26, 26, 26, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #444;
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--copper);
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--copper);
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 bg-black bg-opacity-90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="font-mono text-xl font-bold text-copper">RTX 5090 Optimization</div>
+                <div class="flex space-x-8">
+                    <a href="index.html" class="nav-link text-gray-300 hover:text-white">Overview</a>
+                    <a href="hardware.html" class="nav-link text-gray-300 hover:text-white">Hardware</a>
+                    <a href="models.html" class="nav-link text-gray-300 hover:text-white">Models</a>
+                    <a href="#workflow" class="nav-link text-copper">Workflow</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="workflow" class="pt-32 pb-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 scroll-reveal">
+                <h1 class="font-inter text-5xl font-bold text-white mb-6">Hybrid Workflow Architecture</h1>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+                    A unified workflow that seamlessly integrates local and cloud models, 
+                    providing a single interface for optimal task-specific AI deployment.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="scroll-reveal">
+                    <img src="resources/hybrid-architecture.png" alt="Hybrid AI Architecture" class="w-full h-auto rounded-lg shadow-2xl">
+                </div>
+                
+                <div class="space-y-8 scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">Cline Agent Integration</h3>
+                        <div class="space-y-4">
+                            <p class="text-gray-300 leading-relaxed">
+                                Cline serves as the central command center, providing deep integration 
+                                with local models and seamless escalation to cloud APIs when necessary.
+                            </p>
+                            <div class="font-mono text-sm text-electric-blue bg-gray-800 p-4 rounded">
+                                Features: File editing, terminal commands, web browsing<br>
+                                Integration: Ollama, LM Studio backends
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Steps -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Multi-Step Workflow</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    A clear hierarchy for tool selection ensures the most appropriate and cost-effective 
+                    resource is used for every task.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-16">
+                <div class="workflow-step performance-card p-6 rounded-xl text-center scroll-reveal">
+                    <div class="text-3xl text-copper mb-4">1</div>
+                    <h3 class="font-inter text-lg font-bold text-white mb-3">Daily Driver</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Qwen3-Coder-30B for majority of coding, refactoring, and analysis tasks.
+                    </p>
+                    <div class="font-mono text-xs text-electric-blue mt-3">80-90 tok/s</div>
+                </div>
+                
+                <div class="workflow-step performance-card p-6 rounded-xl text-center scroll-reveal">
+                    <div class="text-3xl text-electric-blue mb-4">2</div>
+                    <h3 class="font-inter text-lg font-bold text-white mb-3">Complex Local</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Llama 3.1 70B (IQ2_XS) for problems that stall the primary model.
+                    </p>
+                    <div class="font-mono text-xs text-copper mt-3">60+ tok/s</div>
+                </div>
+                
+                <div class="workflow-step performance-card p-6 rounded-xl text-center scroll-reveal">
+                    <div class="text-3xl text-copper mb-4">3</div>
+                    <h3 class="font-inter text-lg font-bold text-white mb-3">Pattern Detection</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Claude 4.1 Opus for deep bug hunting in mature codebases.
+                    </p>
+                    <div class="font-mono text-xs text-electric-blue mt-3">API Call</div>
+                </div>
+                
+                <div class="workflow-step performance-card p-6 rounded-xl text-center scroll-reveal">
+                    <div class="text-3xl text-electric-blue mb-4">4</div>
+                    <h3 class="font-inter text-lg font-bold text-white mb-3">Quantum Analysis</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        granite-8b-qiskit for specialized quantum software development.
+                    </p>
+                    <div class="font-mono text-xs text-copper mt-3">200+ tok/s</div>
+                </div>
+                
+                <div class="workflow-step performance-card p-6 rounded-xl text-center scroll-reveal">
+                    <div class="text-3xl text-copper mb-4">5</div>
+                    <h3 class="font-inter text-lg font-bold text-white mb-3">Theoretical Analysis</h3>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        GPT-5 for novel exploits and quantum-resistant protocols.
+                    </p>
+                    <div class="font-mono text-xs text-electric-blue mt-3">API Call</div>
+                </div>
+            </div>
+            
+            <!-- Workflow Diagram -->
+            <div class="scroll-reveal">
+                <div class="performance-card p-8 rounded-xl">
+                    <h3 class="font-inter text-2xl font-bold text-white mb-6">Workflow Visualization</h3>
+                    <div id="workflowChart" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI Analysis -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Return on Investment Analysis</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    The hybrid approach creates powerful financial justification for hardware investment 
+                    through intelligent cost containment and strategic API usage.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div class="scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">Cost Structure</h3>
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                                <span class="text-gray-300">RTX 5090 Investment</span>
+                                <span class="font-mono text-copper">$1,999 (one-time)</span>
+                            </div>
+                            <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                                <span class="text-gray-300">Premium API Costs</span>
+                                <span class="font-mono text-electric-blue">$15-20/million tokens</span>
+                            </div>
+                            <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                                <span class="text-gray-300">Local Processing</span>
+                                <span class="font-mono text-copper">$0 marginal cost</span>
+                            </div>
+                            <div class="flex justify-between items-center p-4 bg-red-900 bg-opacity-30 rounded-lg">
+                                <span class="text-gray-300">Pure Cloud Alternative</span>
+                                <span class="font-mono text-red-400">$500-2000/month</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">Break-even Analysis</h3>
+                        <div class="space-y-6">
+                            <p class="text-gray-300 leading-relaxed">
+                                Hardware investment is rapidly amortized by offloading the majority 
+                                of token generation from high-cost APIs to fixed-cost local processing.
+                            </p>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-300">Monthly API Savings</span>
+                                    <span class="font-mono text-electric-blue">$800-1500</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-300">Break-even Time</span>
+                                    <span class="font-mono text-copper">1.5-3 months</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-300">Annual Savings</span>
+                                    <span class="font-mono text-green-400">$10,000-18,000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interactive ROI Calculator -->
+            <div class="mt-16 scroll-reveal">
+                <div class="performance-card p-8 rounded-xl">
+                    <h3 class="font-inter text-2xl font-bold text-white mb-6">Interactive ROI Calculator</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="cost-calculator">
+                            <h4 class="font-inter text-lg font-bold text-copper mb-4">Monthly Usage Parameters</h4>
+                            
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                                        Local Processing (million tokens/month)
+                                    </label>
+                                    <input type="range" id="localTokens" class="slider" min="1" max="100" value="50">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>1M</span>
+                                        <span id="localTokensValue">50M</span>
+                                        <span>100M</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                                        API Calls (million tokens/month)
+                                    </label>
+                                    <input type="range" id="apiTokens" class="slider" min="0.1" max="10" value="2" step="0.1">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>0.1M</span>
+                                        <span id="apiTokensValue">2M</span>
+                                        <span>10M</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                                        API Cost per Million Tokens ($)
+                                    </label>
+                                    <input type="range" id="apiCost" class="slider" min="10" max="25" value="17.5" step="0.5">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>$10</span>
+                                        <span id="apiCostValue">$17.50</span>
+                                        <span>$25</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="cost-calculator">
+                            <h4 class="font-inter text-lg font-bold text-electric-blue mb-4">Cost Analysis Results</h4>
+                            
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">Monthly API Cost</span>
+                                    <span class="font-mono text-red-400" id="monthlyApiCost">$35.00</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">Hardware Investment</span>
+                                    <span class="font-mono text-copper">$1,999</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">Break-even (months)</span>
+                                    <span class="font-mono text-electric-blue" id="breakEvenMonths">57.1</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-green-900 bg-opacity-30 rounded">
+                                    <span class="text-gray-300">Annual Savings</span>
+                                    <span class="font-mono text-green-400" id="annualSavings">$420</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ROI Chart -->
+                    <div id="roiChart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Considerations -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Security Considerations</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    Critical security warnings and mitigation strategies when using autonomous agents 
+                    for security analysis and bug bounty hunting.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-red-400 mb-4">⚠️</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Prompt Injection Vulnerability</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Research has uncovered a prompt injection vulnerability in the Cline agent itself. 
+                            When analyzing untrusted code, mandatory mitigation strategies must be employed.
+                        </p>
+                        <div class="font-mono text-sm text-red-400 bg-gray-800 p-4 rounded">
+                            Risk: Malicious code could execute system commands<br>
+                            Impact: Full system compromise
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-green-400 mb-4">🛡️</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Mitigation Strategies</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Essential security measures for safe operation when working with 
+                            untrusted repositories and potential security threats.
+                        </p>
+                        <div class="font-mono text-sm text-green-400 bg-gray-800 p-4 rounded">
+                            • Docker container isolation<br>
+                            • Manual command review<br>
+                            • VM environment for high-risk targets
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Implementation Guide -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Implementation Guide</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    Step-by-step setup instructions for deploying the hybrid architecture 
+                    on your RTX 5090 system.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-copper mb-4">1</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Backend Setup</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Install and configure Ollama or LM Studio for local model serving 
+                            with RTX 5090 optimization.
+                        </p>
+                        <div class="font-mono text-xs text-electric-blue bg-gray-800 p-3 rounded">
+                            ollama pull qwen3-coder:30b-q4<br>
+                            ollama pull llama3.1:70b-iq2
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-electric-blue mb-4">2</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Cline Integration</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Install Cline VS Code extension and configure model connections 
+                            for seamless workflow switching.
+                        </p>
+                        <div class="font-mono text-xs text-copper bg-gray-800 p-3 rounded">
+                            ext install cline<br>
+                            Configure: Local + API endpoints
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-copper mb-4">3</div>
+                        <h3 class="font-inter text-xl font-bold text-white">API Configuration</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Set up strategic API access for Claude 4.1 Opus and GPT-5 
+                            for frontier-level reasoning tasks.
+                        </p>
+                        <div class="font-mono text-xs text-electric-blue bg-gray-800 p-3 rounded">
+                            ANTHROPIC_API_KEY<br>
+                            OPENAI_API_KEY
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Next Steps -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Ready to Deploy?</h2>
+                <p class="text-xl text-gray-300 mb-8 leading-relaxed">
+                    You now have all the knowledge needed to transform your RTX 5090 into a 
+                    professional-grade AI workstation. Start with the model configurations 
+                    and build your hybrid workflow today.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="models.html" class="bg-copper text-black px-8 py-3 rounded-lg font-inter font-semibold hover:bg-yellow-600 transition-all">Configure Models</a>
+                    <a href="index.html" class="border border-copper text-copper px-8 py-3 rounded-lg font-inter hover:bg-copper hover:text-black transition-all">Back to Overview</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black py-8">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center">
+                <div class="font-mono text-copper mb-2">RTX 5090 Optimization Whitepaper</div>
+                <div class="text-gray-400 text-sm">Technical analysis for AI professionals and hardware enthusiasts</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ROI Calculator functionality
+        function updateROICalculator() {
+            const localTokens = parseFloat(document.getElementById('localTokens').value);
+            const apiTokens = parseFloat(document.getElementById('apiTokens').value);
+            const apiCost = parseFloat(document.getElementById('apiCost').value);
+            
+            // Update display values
+            document.getElementById('localTokensValue').textContent = localTokens + 'M';
+            document.getElementById('apiTokensValue').textContent = apiTokens + 'M';
+            document.getElementById('apiCostValue').textContent = '$' + apiCost.toFixed(2);
+            
+            // Calculate costs
+            const monthlyApiCost = apiTokens * apiCost;
+            const hardwareCost = 1999;
+            const breakEvenMonths = hardwareCost / monthlyApiCost;
+            const annualSavings = monthlyApiCost * 12 - hardwareCost;
+            
+            // Update results
+            document.getElementById('monthlyApiCost').textContent = '$' + monthlyApiCost.toFixed(2);
+            document.getElementById('breakEvenMonths').textContent = breakEvenMonths.toFixed(1);
+            document.getElementById('annualSavings').textContent = '$' + Math.max(0, annualSavings).toFixed(0);
+            
+            // Update ROI chart
+            updateROIChart(monthlyApiCost, hardwareCost);
+        }
+        
+        function updateROIChart(monthlyCost, hardwareCost) {
+            const chartElement = document.getElementById('roiChart');
+            if (!chartElement) return;
+            
+            const chart = echarts.init(chartElement);
+            
+            const months = Array.from({length: 12}, (_, i) => i + 1);
+            const pureCloudCost = months.map(m => m * monthlyCost);
+            const hybridCost = months.map(m => hardwareCost + m * monthlyCost * 0.2); // 80% reduction
+            
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: '#1a1a1a',
+                    borderColor: '#b8860b',
+                    textStyle: { color: '#e0e0e0' }
+                },
+                legend: {
+                    data: ['Pure Cloud', 'Hybrid Approach'],
+                    textStyle: { color: '#e0e0e0' },
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: months.map(m => 'Month ' + m),
+                    axisLine: { lineStyle: { color: '#444' } },
+                    axisLabel: { color: '#a0a0a0' }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Cumulative Cost ($)',
+                    nameTextStyle: { color: '#a0a0a0' },
+                    axisLine: { lineStyle: { color: '#444' } },
+                    axisLabel: { color: '#a0a0a0' },
+                    splitLine: { lineStyle: { color: '#333' } }
+                },
+                series: [
+                    {
+                        name: 'Pure Cloud',
+                        type: 'line',
+                        data: pureCloudCost,
+                        lineStyle: { color: '#ff6b6b', width: 3 },
+                        itemStyle: { color: '#ff6b6b' },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(255, 107, 107, 0.3)' },
+                                    { offset: 1, color: 'rgba(255, 107, 107, 0.1)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: 'Hybrid Approach',
+                        type: 'line',
+                        data: hybridCost,
+                        lineStyle: { color: '#b8860b', width: 3 },
+                        itemStyle: { color: '#b8860b' },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(184, 134, 11, 0.3)' },
+                                    { offset: 1, color: 'rgba(184, 134, 11, 0.1)' }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            };
+            
+            chart.setOption(option);
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize ROI calculator
+            document.getElementById('localTokens').addEventListener('input', updateROICalculator);
+            document.getElementById('apiTokens').addEventListener('input', updateROICalculator);
+            document.getElementById('apiCost').addEventListener('input', updateROICalculator);
+            
+            // Initialize workflow chart
+            const workflowChart = document.getElementById('workflowChart');
+            if (workflowChart) {
+                const chart = echarts.init(workflowChart);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: '#1a1a1a',
+                        borderColor: '#b8860b',
+                        textStyle: { color: '#e0e0e0' }
+                    },
+                    series: [
+                        {
+                            name: 'Workflow Steps',
+                            type: 'sankey',
+                            data: [
+                                { name: 'User Input' },
+                                { name: 'Cline Agent' },
+                                { name: 'Qwen3-30B' },
+                                { name: 'Llama70B' },
+                                { name: 'Claude Opus' },
+                                { name: 'granite-8B' },
+                                { name: 'GPT-5' },
+                                { name: 'Task Complete' }
+                            ],
+                            links: [
+                                { source: 'User Input', target: 'Cline Agent', value: 100 },
+                                { source: 'Cline Agent', target: 'Qwen3-30B', value: 70 },
+                                { source: 'Cline Agent', target: 'Llama70B', value: 20 },
+                                { source: 'Cline Agent', target: 'Claude Opus', value: 5 },
+                                { source: 'Cline Agent', target: 'granite-8B', value: 3 },
+                                { source: 'Cline Agent', target: 'GPT-5', value: 2 },
+                                { source: 'Qwen3-30B', target: 'Task Complete', value: 70 },
+                                { source: 'Llama70B', target: 'Task Complete', value: 20 },
+                                { source: 'Claude Opus', target: 'Task Complete', value: 5 },
+                                { source: 'granite-8B', target: 'Task Complete', value: 3 },
+                                { source: 'GPT-5', target: 'Task Complete', value: 2 }
+                            ],
+                            itemStyle: {
+                                color: function(params) {
+                                    const colors = ['#b8860b', '#00d4ff', '#888', '#ff6b6b'];
+                                    return colors[params.dataIndex % colors.length];
+                                }
+                            },
+                            lineStyle: {
+                                color: 'source',
+                                curveness: 0.5
+                            }
+                        }
+                    ]
+                };
+                
+                chart.setOption(option);
+                
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            chart.resize();
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                });
+                observer.observe(workflowChart);
+            }
+            
+            // Initialize scroll animations
+            const elements = document.querySelectorAll('.scroll-reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        anime({
+                            targets: entry.target,
+                            opacity: [0, 1],
+                            translateY: [30, 0],
+                            duration: 800,
+                            easing: 'easeOutCubic'
+                        });
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            elements.forEach(element => observer.observe(element));
+            
+            // Initial ROI calculation
+            updateROICalculator();
+        });
+    </script>
+</body>
+</html>

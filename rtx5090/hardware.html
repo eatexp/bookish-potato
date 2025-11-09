@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware Analysis - RTX 5090 Optimization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0f0f0f;
+            --secondary-dark: #1a1a1a;
+            --copper: #b8860b;
+            --electric-blue: #00d4ff;
+            --text-light: #e0e0e0;
+            --text-gray: #a0a0a0;
+        }
+        
+        body {
+            font-family: 'Source Sans Pro', sans-serif;
+            background: var(--primary-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        
+        .performance-card {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid rgba(184, 134, 11, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .performance-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--copper);
+            box-shadow: 0 20px 40px rgba(184, 134, 11, 0.1);
+        }
+        
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--copper);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        
+        .spec-table {
+            background: rgba(26, 26, 26, 0.6);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .spec-row {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background-color 0.3s ease;
+        }
+        
+        .spec-row:hover {
+            background: rgba(184, 134, 11, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 bg-black bg-opacity-90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="font-mono text-xl font-bold text-copper">RTX 5090 Optimization</div>
+                <div class="flex space-x-8">
+                    <a href="index.html" class="nav-link text-gray-300 hover:text-white">Overview</a>
+                    <a href="#hardware" class="nav-link text-copper">Hardware</a>
+                    <a href="models.html" class="nav-link text-gray-300 hover:text-white">Models</a>
+                    <a href="workflow.html" class="nav-link text-gray-300 hover:text-white">Workflow</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="hardware" class="pt-32 pb-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 scroll-reveal">
+                <h1 class="font-inter text-5xl font-bold text-white mb-6">RTX 5090 Hardware Analysis</h1>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+                    Deep technical analysis of the RTX 5090 platform, examining the 32GB GDDR7 VRAM sweet spot, 
+                    memory bandwidth capabilities, and architectural advantages for AI workloads.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="scroll-reveal">
+                    <img src="resources/rtx5090-hero.png" alt="RTX 5090 Technical Specifications" class="w-full h-auto rounded-lg shadow-2xl">
+                </div>
+                
+                <div class="space-y-8 scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">Key Specifications</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-300">Architecture</span>
+                                <span class="font-mono text-electric-blue">Blackwell</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-300">VRAM</span>
+                                <span class="font-mono text-copper">32GB GDDR7</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-300">Memory Bandwidth</span>
+                                <span class="font-mono text-electric-blue">1.79 TB/s</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-300">Performance Uplift</span>
+                                <span class="font-mono text-copper">+28-50%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- The 32GB Sweet Spot -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">The 32GB VRAM "Sweet Spot"</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    The RTX 5090's 32GB VRAM capacity creates a strategic performance threshold that defines 
+                    optimal model selection and deployment strategies.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-copper mb-4">🎯</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Optimal Range</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            30B to 70B parameter models can be quantized to fit entirely within the GPU's 
+                            high-speed memory, eliminating system RAM bottlenecks.
+                        </p>
+                        <div class="font-mono text-sm text-electric-blue bg-gray-800 p-3 rounded">
+                            30B Q4_K_M: ~16GB VRAM<br>
+                            70B IQ2_XS: ~21GB VRAM
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-red-400 mb-4">⚠️</div>
+                        <h3 class="font-inter text-xl font-bold text-white">The 70B Trap</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Standard 4-bit quantization of 70B models requires 40-42GB VRAM, 
+                            forcing slow system RAM offloading that cripples performance.
+                        </p>
+                        <div class="font-mono text-sm text-red-400 bg-gray-800 p-3 rounded">
+                            70B Q4: 42GB required<br>
+                            Performance: 5-8 tok/s
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl text-electric-blue mb-4">⚡</div>
+                        <h3 class="font-inter text-xl font-bold text-white">Performance Impact</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-300 leading-relaxed">
+                            Loading models fully into VRAM is essential for maximum inference speed, 
+                            as it eliminates the performance bottleneck of accessing slower system RAM.
+                        </p>
+                        <div class="font-mono text-sm text-electric-blue bg-gray-800 p-3 rounded">
+                            Full VRAM: 60-90 tok/s<br>
+                            System RAM: 5-15 tok/s
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Uplift Analysis -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Performance Uplift Analysis</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    RTX 5090 represents a significant generational leap, with benchmarks showing 28-50% faster performance 
+                    than its predecessor across various model sizes and configurations.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div class="scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">GDDR7 Memory Advantage</h3>
+                        <div class="space-y-6">
+                            <p class="text-gray-300 leading-relaxed">
+                                The superior GDDR7 memory provides nearly 1.8 TB/s of bandwidth, 
+                                directly translating to faster token generation for memory-bound LLM inference tasks.
+                            </p>
+                            
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">Memory Bandwidth</span>
+                                    <span class="font-mono text-electric-blue">1.79 TB/s</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">vs RTX 4090</span>
+                                    <span class="font-mono text-copper">+40% bandwidth</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">Token Generation</span>
+                                    <span class="font-mono text-electric-blue">Memory-bound</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="scroll-reveal">
+                    <div class="performance-card p-8 rounded-xl">
+                        <h3 class="font-inter text-2xl font-bold text-copper mb-6">Benchmark Results</h3>
+                        <div class="space-y-6">
+                            <p class="text-gray-300 leading-relaxed">
+                                Comprehensive testing across multiple model configurations demonstrates 
+                                consistent performance improvements in real-world AI workloads.
+                            </p>
+                            
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">30B Models</span>
+                                    <span class="font-mono text-copper">+28% faster</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">70B Models</span>
+                                    <span class="font-mono text-electric-blue">+35% faster</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-800 rounded">
+                                    <span class="text-gray-300">8B Models</span>
+                                    <span class="font-mono text-copper">+50% faster</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Comparison Chart -->
+            <div class="mt-16 scroll-reveal">
+                <div class="performance-card p-8 rounded-xl">
+                    <h3 class="font-inter text-2xl font-bold text-white mb-6">Detailed Performance Comparison</h3>
+                    <div id="detailedPerformanceChart" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Limitations -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-8 text-center">Technical Constraints</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto text-center mb-16">
+                    Understanding hardware limitations is crucial for optimal model selection and deployment strategy.
+                </p>
+            </div>
+            
+            <div class="spec-table scroll-reveal">
+                <div class="spec-row p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div>
+                            <h3 class="font-inter text-lg font-bold text-white">Massive Model Limitation</h3>
+                            <p class="text-gray-400 text-sm">200B+ parameter models</p>
+                        </div>
+                        <div class="text-gray-300">
+                            Impractical for local deployment without significant performance penalties
+                        </div>
+                        <div class="font-mono text-red-400">
+                            Requires 400GB+ VRAM
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="spec-row p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div>
+                            <h3 class="font-inter text-lg font-bold text-white">Quantization Trade-offs</h3>
+                            <p class="text-gray-400 text-sm">Aggressive quantization methods</p>
+                        </div>
+                        <div class="text-gray-300">
+                            2-bit quantization fits larger models but reduces reasoning capability
+                        </div>
+                        <div class="font-mono text-yellow-400">
+                            Performance vs capability
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="spec-row p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div>
+                            <h3 class="font-inter text-lg font-bold text-white">Memory Bandwidth Saturation</h3>
+                            <p class="text-gray-400 text-sm">Compute-bound vs memory-bound</p>
+                        </div>
+                        <div class="text-gray-300">
+                            Some workloads may be limited by compute rather than memory bandwidth
+                        </div>
+                        <div class="font-mono text-electric-blue">
+                            Architecture dependent
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Next Steps -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Next: Model Selection Strategy</h2>
+                <p class="text-xl text-gray-300 mb-8 leading-relaxed">
+                    With hardware constraints understood, the next step is selecting optimal models and 
+                    quantization methods that maximize the RTX 5090's capabilities.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="models.html" class="bg-copper text-black px-8 py-3 rounded-lg font-inter font-semibold hover:bg-yellow-600 transition-all">Explore Model Configurations</a>
+                    <a href="workflow.html" class="border border-copper text-copper px-8 py-3 rounded-lg font-inter hover:bg-copper hover:text-black transition-all">View Implementation Guide</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black py-8">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center">
+                <div class="font-mono text-copper mb-2">RTX 5090 Optimization Whitepaper</div>
+                <div class="text-gray-400 text-sm">Technical analysis for AI professionals and hardware enthusiasts</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize detailed performance chart
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartElement = document.getElementById('detailedPerformanceChart');
+            if (chartElement) {
+                const chart = echarts.init(chartElement);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: '#1a1a1a',
+                        borderColor: '#b8860b',
+                        textStyle: { color: '#e0e0e0' }
+                    },
+                    legend: {
+                        data: ['RTX 5090', 'RTX 4090', 'Performance Uplift'],
+                        textStyle: { color: '#e0e0e0' },
+                        top: 10
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['Qwen3-30B Q4', 'Llama70B IQ2', 'DeepSeek33B Q4', 'granite-8B Q4'],
+                        axisLine: { lineStyle: { color: '#444' } },
+                        axisLabel: { color: '#a0a0a0' }
+                    },
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: 'Tokens/sec',
+                            nameTextStyle: { color: '#a0a0a0' },
+                            axisLine: { lineStyle: { color: '#444' } },
+                            axisLabel: { color: '#a0a0a0' },
+                            splitLine: { lineStyle: { color: '#333' } }
+                        },
+                        {
+                            type: 'value',
+                            name: 'Uplift %',
+                            nameTextStyle: { color: '#a0a0a0' },
+                            axisLine: { lineStyle: { color: '#444' } },
+                            axisLabel: { color: '#a0a0a0' },
+                            splitLine: { show: false }
+                        }
+                    ],
+                    series: [
+                        {
+                            name: 'RTX 5090',
+                            type: 'bar',
+                            data: [85, 65, 55, 200],
+                            itemStyle: { color: '#b8860b' }
+                        },
+                        {
+                            name: 'RTX 4090',
+                            type: 'bar',
+                            data: [60, 40, 35, 150],
+                            itemStyle: { color: '#00d4ff' }
+                        },
+                        {
+                            name: 'Performance Uplift',
+                            type: 'line',
+                            yAxisIndex: 1,
+                            data: [42, 63, 57, 33],
+                            lineStyle: { color: '#ff6b6b', width: 3 },
+                            itemStyle: { color: '#ff6b6b' }
+                        }
+                    ]
+                };
+                
+                chart.setOption(option);
+                
+                // Animate on scroll
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            chart.resize();
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                });
+                observer.observe(chartElement);
+            }
+            
+            // Initialize scroll animations
+            const elements = document.querySelectorAll('.scroll-reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        anime({
+                            targets: entry.target,
+                            opacity: [0, 1],
+                            translateY: [30, 0],
+                            duration: 800,
+                            easing: 'easeOutCubic'
+                        });
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            elements.forEach(element => observer.observe(element));
+        });
+    </script>
+</body>
+</html>

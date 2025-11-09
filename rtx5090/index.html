@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizing RTX 5090: Hybrid AI Model Configurations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/typed.js/2.0.12/typed.min.js"></script>
+    <script src="https://unpkg.com/splitting@1.0.6/dist/splitting.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/splitting@1.0.6/dist/splitting.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0f0f0f;
+            --secondary-dark: #1a1a1a;
+            --copper: #b8860b;
+            --electric-blue: #00d4ff;
+            --text-light: #e0e0e0;
+            --text-gray: #a0a0a0;
+        }
+        
+        body {
+            font-family: 'Source Sans Pro', sans-serif;
+            background: var(--primary-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        
+        .hero-bg {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-dark) 100%);
+            position: relative;
+        }
+        
+        .hero-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23333" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.1;
+        }
+        
+        .performance-card {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid rgba(184, 134, 11, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .performance-card:hover {
+            transform: translateY(-5px) rotateX(5deg);
+            border-color: var(--copper);
+            box-shadow: 0 20px 40px rgba(184, 134, 11, 0.1);
+        }
+        
+        .spec-item {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .chart-container {
+            background: rgba(26, 26, 26, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--copper);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .typewriter {
+            border-right: 2px solid var(--copper);
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { border-color: var(--copper); }
+            51%, 100% { border-color: transparent; }
+        }
+        
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--copper) 0%, #d4af37 100%);
+            color: var(--primary-dark);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(184, 134, 11, 0.3);
+        }
+        
+        .metric-counter {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--electric-blue);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 bg-black bg-opacity-90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="font-mono text-xl font-bold text-copper">RTX 5090 Optimization</div>
+                <div class="flex space-x-8">
+                    <a href="#overview" class="nav-link text-gray-300 hover:text-white">Overview</a>
+                    <a href="hardware.html" class="nav-link text-gray-300 hover:text-white">Hardware</a>
+                    <a href="models.html" class="nav-link text-gray-300 hover:text-white">Models</a>
+                    <a href="workflow.html" class="nav-link text-gray-300 hover:text-white">Workflow</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-bg min-h-screen flex items-center pt-20">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="space-y-8">
+                <div class="space-y-4">
+                    <h1 class="font-inter text-5xl lg:text-6xl font-bold leading-tight">
+                        <span class="text-white">Optimizing</span><br>
+                        <span class="text-copper">RTX 5090</span><br>
+                        <span class="text-xl text-gray-400 font-normal">Hybrid AI Model Configurations</span>
+                    </h1>
+                    <div class="font-mono text-lg text-electric-blue">
+                        <span id="typewriter"></span>
+                    </div>
+                </div>
+                
+                <div class="space-y-6">
+                    <p class="text-xl text-gray-300 leading-relaxed">
+                        A technical whitepaper on maximizing ROI through disciplined hybrid architecture, 
+                        combining local 30B-70B parameter models with strategic cloud API escalation.
+                    </p>
+                    
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="text-center">
+                            <div class="metric-counter" data-target="32">0</div>
+                            <div class="text-sm text-gray-400">GB VRAM</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="metric-counter" data-target="1.79">0</div>
+                            <div class="text-sm text-gray-400">TB/s Bandwidth</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="metric-counter" data-target="90">0</div>
+                            <div class="text-sm text-gray-400">Tokens/sec</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button class="btn-primary px-8 py-3 rounded-lg font-inter">Read Whitepaper</button>
+                    <button class="border border-copper text-copper px-8 py-3 rounded-lg font-inter hover:bg-copper hover:text-black transition-all">View Benchmarks</button>
+                </div>
+            </div>
+            
+            <div class="relative">
+                <img src="resources/rtx5090-hero.png" alt="RTX 5090 Graphics Card" class="w-full h-auto rounded-lg shadow-2xl">
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent rounded-lg"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Executive Summary -->
+    <section id="overview" class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Executive Summary</h2>
+                <p class="text-xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+                    The RTX 5090's 32GB GDDR7 VRAM creates a distinct performance "sweet spot" for AI workloads. 
+                    This analysis demonstrates that a hybrid architecture combining specialized local models with 
+                    strategic cloud API calls delivers superior performance and cost-efficiency compared to 
+                    monolithic local model deployment.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-copper text-3xl mb-4">⚡</div>
+                    <h3 class="font-inter text-xl font-bold text-white mb-4">Performance Uplift</h3>
+                    <p class="text-gray-300 leading-relaxed">
+                        RTX 5090 delivers 28-50% faster performance than RTX 4090 across various model sizes, 
+                        with GDDR7 memory providing 1.79 TB/s bandwidth for optimal inference speed.
+                    </p>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-electric-blue text-3xl mb-4">🧠</div>
+                    <h3 class="font-inter text-xl font-bold text-white mb-4">Hybrid Architecture</h3>
+                    <p class="text-gray-300 leading-relaxed">
+                        Strategic combination of 30B-70B local models with cloud API escalation provides 
+                        optimal balance of speed, capability, and cost-efficiency for professional AI workloads.
+                    </p>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="text-copper text-3xl mb-4">💰</div>
+                    <h3 class="font-inter text-xl font-bold text-white mb-4">ROI Optimization</h3>
+                    <p class="text-gray-300 leading-relaxed">
+                        Hardware investment rapidly amortized through cost-containment strategy, 
+                        reserving expensive API calls for only the most critical, high-value tasks.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Benchmarks -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Performance Benchmarks</h2>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    Interactive comparison of RTX 5090 performance across different model configurations and quantization methods.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div class="chart-container scroll-reveal">
+                    <h3 class="font-inter text-xl font-bold text-white mb-6">Model Performance Comparison</h3>
+                    <div id="performanceChart" style="height: 400px;"></div>
+                </div>
+                
+                <div class="chart-container scroll-reveal">
+                    <h3 class="font-inter text-xl font-bold text-white mb-6">VRAM Usage Analysis</h3>
+                    <div id="vramChart" style="height: 400px;"></div>
+                </div>
+            </div>
+            
+            <!-- Interactive Model Selector -->
+            <div class="mt-16 scroll-reveal">
+                <div class="performance-card p-8 rounded-xl">
+                    <h3 class="font-inter text-2xl font-bold text-white mb-6">Interactive Model Configurator</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Model Size</label>
+                            <select id="modelSize" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                <option value="30B">30B Parameters</option>
+                                <option value="70B">70B Parameters</option>
+                                <option value="8B">8B Parameters</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Quantization Method</label>
+                            <select id="quantMethod" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                <option value="Q4_K_M">Q4_K_M (4-bit)</option>
+                                <option value="IQ2_XS">IQ2_XS (2-bit)</option>
+                                <option value="AWQ">AWQ (4-bit)</option>
+                                <option value="EXL2">EXL2 (Optimized)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Use Case</label>
+                            <select id="useCase" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                <option value="coding">Autonomous Coding</option>
+                                <option value="security">Security Analysis</option>
+                                <option value="quantum">Quantum Computing</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="configResults" class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-electric-blue" id="vramUsage">--</div>
+                            <div class="text-sm text-gray-400">VRAM Usage (GB)</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-copper" id="tokenSpeed">--</div>
+                            <div class="text-sm text-gray-400">Tokens/sec</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-electric-blue" id="memoryBandwidth">--</div>
+                            <div class="text-sm text-gray-400">Memory Efficiency</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-copper" id="costPerHour">--</div>
+                            <div class="text-sm text-gray-400">Cost/Hour</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Findings -->
+    <section class="py-20 bg-secondary-dark">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Strategic Recommendations</h2>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    Evidence-based conclusions for optimizing RTX 5090 deployment in professional AI environments.
+                </p>
+            </div>
+            
+            <div class="space-y-8">
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="flex items-start space-x-6">
+                        <div class="flex-shrink-0 w-12 h-12 bg-copper rounded-full flex items-center justify-center text-black font-bold text-xl">1</div>
+                        <div class="flex-1">
+                            <h3 class="font-inter text-xl font-bold text-white mb-3">Avoid the 70B Parameter Trap</h3>
+                            <p class="text-gray-300 leading-relaxed mb-4">
+                                Running 70B models with standard quantization exceeds VRAM capacity, forcing slow system RAM offloading. 
+                                Aggressive 2-bit quantization reduces reasoning capability below 8B model performance.
+                            </p>
+                            <div class="font-mono text-sm text-electric-blue bg-gray-800 p-3 rounded">
+                                Recommendation: Use 30B models (Q4_K_M) for optimal speed-capability balance
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="flex items-start space-x-6">
+                        <div class="flex-shrink-0 w-12 h-12 bg-electric-blue rounded-full flex items-center justify-center text-black font-bold text-xl">2</div>
+                        <div class="flex-1">
+                            <h3 class="font-inter text-xl font-bold text-white mb-3">Implement Hybrid Architecture</h3>
+                            <p class="text-gray-300 leading-relaxed mb-4">
+                                Combine Qwen3-Coder-30B for daily tasks, Llama 3.1 70B (IQ2_XS) for complex reasoning, 
+                                and strategic API calls for frontier-level challenges.
+                            </p>
+                            <div class="font-mono text-sm text-copper bg-gray-800 p-3 rounded">
+                                Result: 80-90 tokens/sec for routine tasks, API escalation only when necessary
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card p-8 rounded-xl scroll-reveal">
+                    <div class="flex items-start space-x-6">
+                        <div class="flex-shrink-0 w-12 h-12 bg-copper rounded-full flex items-center justify-center text-black font-bold text-xl">3</div>
+                        <div class="flex-1">
+                            <h3 class="font-inter text-xl font-bold text-white mb-3">Optimize Quantization Strategy</h3>
+                            <p class="text-gray-300 leading-relaxed mb-4">
+                                AWQ dominates for GPU inference with 4x memory reduction. EXL2 excels for small batch sizes 
+                                in interactive analysis. Avoid GGUF for pure GPU deployments.
+                            </p>
+                            <div class="font-mono text-sm text-electric-blue bg-gray-800 p-3 rounded">
+                                Performance: AWQ delivers 20-40% faster throughput than GGUF in GPU-only scenarios
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="py-20 bg-primary-dark">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <div class="scroll-reveal">
+                <h2 class="font-inter text-4xl font-bold text-white mb-6">Ready to Optimize Your RTX 5090?</h2>
+                <p class="text-xl text-gray-300 mb-8 leading-relaxed">
+                    Dive deeper into the technical specifications, model configurations, and implementation strategies 
+                    that will transform your consumer GPU into a professional-grade AI workstation.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="hardware.html" class="btn-primary px-8 py-3 rounded-lg font-inter inline-block">Hardware Analysis</a>
+                    <a href="models.html" class="border border-copper text-copper px-8 py-3 rounded-lg font-inter hover:bg-copper hover:text-black transition-all inline-block">Model Configurations</a>
+                    <a href="workflow.html" class="border border-electric-blue text-electric-blue px-8 py-3 rounded-lg font-inter hover:bg-electric-blue hover:text-black transition-all inline-block">Implementation Guide</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black py-8">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center">
+                <div class="font-mono text-copper mb-2">RTX 5090 Optimization Whitepaper</div>
+                <div class="text-gray-400 text-sm">Technical analysis for AI professionals and hardware enthusiasts</div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
