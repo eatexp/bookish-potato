@@ -4,7 +4,14 @@
 // Core abstractions
 export type { GPUMetrics, GPUProvider, HealthCheckResult } from './core/gpu-provider';
 export { GPUDetector, DockerAwareGPUDetector } from './core/gpu-detector';
-// export { ModelRouter, RouteDecision } from './core/model-router';
+export type {
+  InferenceRequest,
+  ModelTarget,
+  RouteDecision,
+  RoutingOptions,
+  ModelRouter,
+  ModelPricing,
+} from './core/model-router';
 // export { HardeningCheck, CheckResult } from './core/hardening-check';
 
 // GPU Providers
@@ -15,13 +22,18 @@ export type { NvidiaSMIConfig } from './providers/nvidia-smi-provider';
 export { NVMLProvider } from './providers/nvml-provider';
 export type { NVMLConfig } from './providers/nvml-provider';
 
-// Routers (will be implemented in later tasks)
-// export { SimpleRouter } from './routers/simple-router';
-// export { CostAwareRouter } from './routers/cost-aware-router';
-// export { APIFirstRouter } from './routers/api-first-router';
+// Model Routers
+export { SimpleRouter } from './routers/simple-router';
+export type { SimpleRouterConfig } from './routers/simple-router';
+export { CostAwareRouter } from './routers/cost-aware-router';
+export type { CostAwareRouterConfig } from './routers/cost-aware-router';
+export { APIFirstRouter } from './routers/api-first-router';
+export type { APIFirstRouterConfig } from './routers/api-first-router';
 
 // Utilities
 export { createGPUDetector } from './utils/gpu-factory';
+export { CostTracker, getCostTracker } from './utils/cost-tracker';
+export type { CostEntry, MonthlySummary } from './utils/cost-tracker';
 
 // Version
 export const VERSION = '0.1.0';
