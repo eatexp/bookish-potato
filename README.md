@@ -1,22 +1,24 @@
 # Hybrid AI Workbench
 
-[![Tests](https://img.shields.io/badge/tests-102%20passing-brightgreen)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-78%25-yellow)](coverage/)
+[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-86.6%25-brightgreen)](coverage/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A production-ready AI routing system that intelligently balances **cost**, **quality**, and **latency** by orchestrating between local GPU models and cloud APIs. Built with **TypeScript** and designed for enterprise-grade reliability.
+A production-ready AI routing and execution system that intelligently balances **cost**, **quality**, and **latency** by orchestrating between local GPU models and cloud APIs. Built with **TypeScript** and designed for enterprise-grade reliability.
 
 ## Features
 
+- **Full Inference Execution**: Routes AND executes requests on local models (Ollama) and cloud APIs (Anthropic, OpenAI)
+- **Streaming Support**: Real-time streaming output with AsyncGenerator for immediate feedback
 - **5-Tier Model Escalation**: Automatically routes tasks from local models (Qwen3, Llama 3.1 70B) to cloud APIs (Claude Opus, GPT-5) based on complexity, context size, and budget
 - **Budget Enforcement**: Track monthly API spend with persistent cost tracking and automatic fallback to local models when budget limits are reached
 - **Three-Tier GPU Abstraction**: NVML native bindings → nvidia-smi CLI parsing → simulated provider for testing/development
 - **Pluggable Router Architecture**: Choose from `simple` (always local), `cost-aware` (budget-optimized), or `api-first` (quality-first) strategies
 - **Docker/WSL Aware**: Automatically detects containerized environments and reorders GPU provider fallbacks
-- **Rich CLI Interface**: Interactive commands with dry-run mode, explain mode, and watch mode for GPU monitoring
+- **Rich CLI Interface**: Interactive commands with dry-run mode, explain mode, watch mode, and streaming
 - **Type-Safe**: Full TypeScript strict mode with comprehensive type definitions
-- **Well-Tested**: 102 unit tests with 78% code coverage
+- **Well-Tested**: 171 unit tests with 86.6% code coverage
 
 ## Quick Start
 
@@ -30,8 +32,14 @@ npm run build
 # Check GPU status
 npm run cli -- gpu-info
 
-# Route a prompt (dry-run to see decision without execution)
-npm run cli -- route "Implement a binary search tree in Rust" --dry-run --explain
+# Execute inference with intelligent routing
+npm run cli -- route "Implement a binary search tree in Rust"
+
+# Stream responses in real-time
+npm run cli -- route "Explain quantum computing" --stream
+
+# Dry-run to see routing decision without execution
+npm run cli -- route "Complex task" --dry-run --explain
 
 # Watch GPU metrics in real-time
 npm run cli -- gpu-info --watch --interval 2
@@ -192,9 +200,18 @@ npm run cli -- gpu-info --watch --interval 2
 npm run cli -- gpu-info --json
 ```
 
-### `route` - Intelligent Routing
+### `route` - Intelligent Routing & Execution
 
 ```bash
+# Execute inference with intelligent routing
+npm run cli -- route "Implement OAuth2 flow in Python"
+
+# Stream responses in real-time
+npm run cli -- route "Explain quantum computing" --stream
+
+# Control generation parameters
+npm run cli -- route "Write a poem" --temperature 1.5 --max-tokens 500
+
 # Dry-run mode (shows decision without execution)
 npm run cli -- route "Implement OAuth2 flow in Python" --dry-run
 
@@ -238,8 +255,36 @@ Alternative Routes:
 ─────────────────────────────────────────────────────────────────
 
 # Choose router strategy
-npm run cli -- route "quantum circuit optimization" --router api-first --dry-run
+npm run cli -- route "quantum circuit optimization" --router api-first
 npm run cli -- route "simple task" --router simple
+
+# Full execution example output:
+Routing to: ollama / llama-3.1-70b
+Rationale: [Tier 2] Moderate complexity routed to Llama 3.1 70B (local)
+
+═══════════════════════════════════════════════════════════════
+  Executing Inference
+═══════════════════════════════════════════════════════════════
+
+Response:
+─────────────────────────────────────────────────────────────────
+
+Here's a complete OAuth2 implementation in Python...
+[response content]
+
+─────────────────────────────────────────────────────────────────
+
+Statistics:
+  Model:             llama-3.1-70b
+  Provider:          ollama
+  Tokens (prompt):   125
+  Tokens (response): 450
+  Total tokens:      575
+  Latency:           3.24s
+  Finish reason:     completed
+  Cost:              $0.00 (local)
+
+═══════════════════════════════════════════════════════════════
 ```
 
 ## Programmatic API
@@ -457,24 +502,27 @@ export class CustomRouter extends BaseModelRouter {
 
 ## Roadmap
 
-### Completed
+### Completed ✅
 
 - [x] Three-tier GPU provider abstraction (NVML → nvidia-smi → Simulated)
 - [x] Docker/WSL environment detection and provider reordering
 - [x] Three router implementations (Simple, CostAware, APIFirst)
 - [x] 5-tier escalation workflow with budget enforcement
 - [x] Persistent cost tracking with monthly aggregation
-- [x] CLI commands (gpu-info, route) with dry-run/explain/watch modes
-- [x] 102 unit tests with 78% coverage
+- [x] **Model provider implementations (Ollama, Anthropic, OpenAI)**
+- [x] **Full inference execution with streaming support**
+- [x] **Provider factory with environment variable configuration**
+- [x] CLI commands (gpu-info, route) with dry-run/explain/watch/stream modes
+- [x] **171 unit tests with 86.6% coverage**
 - [x] TypeScript strict mode throughout
 - [x] Pretty-printed CLI output with tables and formatting
+- [x] **Comprehensive cost tracker tests**
+- [x] **Budget status reporting after API calls**
 
-### In Progress
+### Future Enhancements
 
-- [ ] Model provider implementations (Ollama, Anthropic, OpenAI)
 - [ ] YAML configuration loader
-- [ ] Increase test coverage to 80%+
-- [ ] Integration tests for end-to-end routing
+- [ ] Integration tests for end-to-end workflows
 
 ### Planned
 
