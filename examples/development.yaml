@@ -1,0 +1,37 @@
+# Development Configuration
+#
+# Optimized for: Local development and testing
+# Best for: Development environments, CI/CD pipelines, testing
+# Monthly cost: $0-10 (minimal API usage for testing)
+
+router:
+  type: cost-aware
+
+  costAware:
+    # Small budget for occasional API testing
+    monthlyBudget: 10.00
+
+    # Prefer local for development
+    defaultLocal: qwen3-coder-30b
+    complexityThreshold: 0.85
+    tokenThreshold: 20000
+
+providers:
+  # Local development server
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 120000  # 2 minutes
+
+  # API providers for testing (optional)
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY}
+    timeout: 60000
+
+  openai:
+    apiKey: ${OPENAI_API_KEY}
+    timeout: 60000
+
+defaults:
+  temperature: 0.5  # More deterministic for testing
+  maxTokens: 2048   # Smaller for faster iteration
+  stream: false     # Easier to debug complete responses

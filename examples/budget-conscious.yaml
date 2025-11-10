@@ -1,0 +1,39 @@
+# Budget-Conscious Configuration
+#
+# Optimized for: Minimizing API costs while maintaining acceptable quality
+# Best for: Individual developers, small teams, personal projects
+# Monthly cost: ~$20-50 depending on usage
+
+router:
+  type: cost-aware
+
+  costAware:
+    # Conservative monthly budget
+    monthlyBudget: 20.00
+
+    # Default to local model
+    defaultLocal: qwen3-coder-30b
+
+    # High threshold = prefer local models
+    complexityThreshold: 0.9  # Only use API for very complex tasks
+    tokenThreshold: 32000     # Only use API for very large contexts
+
+providers:
+  # Local model provider (free)
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 180000  # 3 minutes for large models
+
+  # Cloud providers (only used when necessary)
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY}
+    timeout: 60000  # 1 minute
+
+  openai:
+    apiKey: ${OPENAI_API_KEY}
+    timeout: 60000  # 1 minute
+
+defaults:
+  temperature: 0.7
+  maxTokens: 2048  # Limit token generation to reduce costs
+  stream: false

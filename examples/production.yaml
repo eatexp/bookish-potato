@@ -1,0 +1,45 @@
+# Production Configuration
+#
+# Optimized for: Reliability, monitoring, and balanced cost/quality
+# Best for: Production applications, customer-facing services
+# Monthly cost: $100-200 depending on usage
+
+router:
+  type: cost-aware
+
+  costAware:
+    # Production budget with headroom
+    monthlyBudget: 150.00
+
+    # Balanced thresholds
+    defaultLocal: llama-3.1-70b  # High-quality local model
+    complexityThreshold: 0.75    # Reasonable escalation
+    tokenThreshold: 16000        # Standard context threshold
+
+providers:
+  # Primary: Local models for cost efficiency
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 180000  # 3 minutes with retry handling
+
+  # Cloud providers for escalation
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY}
+    timeout: 120000  # 2 minutes with proper error handling
+
+  openai:
+    apiKey: ${OPENAI_API_KEY}
+    organization: ${OPENAI_ORG_ID}
+    timeout: 120000  # 2 minutes
+
+defaults:
+  temperature: 0.7  # Balanced creativity
+  maxTokens: 4096   # Standard limit
+  stream: true      # Better UX for end users
+
+# Note: In production, ensure you have:
+# - Proper error handling and retries
+# - Monitoring and alerting
+# - Budget alerts at 80% and 100%
+# - Fallback strategies for API failures
+# - Cost tracking and reporting

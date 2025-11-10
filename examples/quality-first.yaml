@@ -1,0 +1,39 @@
+# Quality-First Configuration
+#
+# Optimized for: Maximum response quality and performance
+# Best for: Production applications, enterprise teams, critical workloads
+# Monthly cost: $200-500+ depending on usage
+
+router:
+  type: api-first
+
+  apiFirst:
+    # Prefer Claude Opus for best quality
+    defaultModel: claude-opus-4
+    defaultProvider: anthropic
+
+    # Fall back to local if API unavailable
+    fallbackToLocal: true
+    localFallbackModel: llama-3.1-70b
+
+providers:
+  # Primary: Anthropic (highest quality)
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY}
+    timeout: 120000  # 2 minutes for complex requests
+
+  # Secondary: OpenAI (frontier models)
+  openai:
+    apiKey: ${OPENAI_API_KEY}
+    organization: ${OPENAI_ORG_ID}
+    timeout: 120000  # 2 minutes
+
+  # Fallback: Local models
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 300000  # 5 minutes for large models
+
+defaults:
+  temperature: 0.8  # Higher creativity
+  maxTokens: 8192   # Generous token limit
+  stream: true      # Real-time streaming for better UX

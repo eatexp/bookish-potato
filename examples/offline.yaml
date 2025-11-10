@@ -1,0 +1,24 @@
+# Offline/Air-Gapped Configuration
+#
+# Optimized for: Complete offline operation, no API calls
+# Best for: Air-gapped environments, privacy-sensitive workloads, security research
+# Monthly cost: $0 (local-only)
+
+router:
+  type: simple
+
+  simple:
+    # Always use local models
+    defaultModel: llama-3.1-70b
+    defaultProvider: ollama
+
+providers:
+  # Only local provider configured
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 300000  # 5 minutes for large models
+
+defaults:
+  temperature: 0.7
+  maxTokens: 4096
+  stream: true

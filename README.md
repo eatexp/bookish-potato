@@ -486,48 +486,6 @@ async function main() {
 main().catch(console.error);
 ```
 
-## Configuration
-
-### Environment Variables
-
-```bash
-# GPU Provider Configuration
-NVML_ENABLED=true
-NVIDIA_SMI_PATH=/usr/bin/nvidia-smi
-
-# Router Configuration
-DEFAULT_ROUTER=cost-aware
-MONTHLY_BUDGET=100
-
-# API Keys (for production use)
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-```
-
-### YAML Configuration (Planned)
-
-```yaml
-# config/routing.yaml
-routers:
-  cost-aware:
-    monthlyBudget: 100
-    complexityThreshold: 0.8
-    tokenThreshold: 16000
-    defaultLocal: qwen3-coder-30b
-
-  api-first:
-    defaultProvider: anthropic
-    defaultModel: claude-opus-4
-    fallbackToLocal: true
-
-gpu:
-  providers:
-    - nvml
-    - nvidia-smi
-    - simulated
-  dockerAware: true
-```
-
 ## Testing
 
 The project includes comprehensive unit and integration tests:
@@ -662,33 +620,36 @@ export class CustomRouter extends BaseModelRouter {
 - [x] Three router implementations (Simple, CostAware, APIFirst)
 - [x] 5-tier escalation workflow with budget enforcement
 - [x] Persistent cost tracking with monthly aggregation
-- [x] **Model provider implementations (Ollama, Anthropic, OpenAI)**
-- [x] **Full inference execution with streaming support**
-- [x] **Provider factory with environment variable configuration**
+- [x] Model provider implementations (Ollama, Anthropic, OpenAI)
+- [x] Full inference execution with streaming support
+- [x] Provider factory with environment variable configuration
 - [x] CLI commands (gpu-info, route) with dry-run/explain/watch/stream modes
-- [x] **171 unit tests with 86.6% coverage**
-- [x] TypeScript strict mode throughout
+- [x] 226 comprehensive tests (193 unit + 33 integration) with 87% coverage
+- [x] TypeScript strict mode with zero lint errors
 - [x] Pretty-printed CLI output with tables and formatting
-- [x] **Comprehensive cost tracker tests**
-- [x] **Budget status reporting after API calls**
+- [x] Comprehensive cost tracker tests
+- [x] Budget status reporting after API calls
+- [x] **YAML configuration loader with environment variable expansion**
+- [x] **Integration tests for end-to-end workflows**
 
-### Future Enhancements
-
-- [ ] YAML configuration loader
-- [ ] Integration tests for end-to-end workflows
-
-### Planned
+### In Progress 🚧
 
 - [ ] Security hardening checks (SELinux, firewall, ECC, TRR)
 - [ ] Interactive remediation script generator
 - [ ] `harden audit/generate/verify` CLI commands
-- [ ] GitHub Actions CI/CD pipeline
-- [ ] API documentation site
 - [ ] Example routing configurations library
+- [ ] Contributing guide and development documentation
+
+### Planned
+
+- [ ] GitHub Actions CI/CD pipeline
+- [ ] API documentation site (TypeDoc)
 - [ ] Multi-GPU load balancing
 - [ ] Request queuing and batching
 - [ ] Prometheus metrics export
-- [ ] Web dashboard for monitoring
+- [ ] Web dashboard for monitoring and cost tracking
+- [ ] Plugin system for custom routers and providers
+- [ ] Machine learning-based routing optimization
 
 ## Contributing
 
