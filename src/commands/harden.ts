@@ -8,20 +8,20 @@ interface GenerateOptions {
   output?: string;
 }
 
-async function audit(options: AuditOptions): Promise<void> {
+function audit(options: AuditOptions): void {
   // TODO: Implement security audit
   // This will use HardeningCheck implementations
   console.log('Harden audit command - to be implemented');
   console.log('Options:', options);
 }
 
-async function generate(options: GenerateOptions): Promise<void> {
+function generate(options: GenerateOptions): void {
   // TODO: Implement script generation
   console.log('Harden generate command - to be implemented');
   console.log('Options:', options);
 }
 
-async function verify(): Promise<void> {
+function verify(): void {
   // TODO: Implement verification
   console.log('Harden verify command - to be implemented');
 }

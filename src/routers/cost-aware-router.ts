@@ -231,4 +231,17 @@ export class CostAwareRouter extends BaseModelRouter {
     const spent = await this.getMonthlySpend();
     return Math.max(0, this.config.monthlyBudget - spent);
   }
+
+  /**
+   * Record a cost entry
+   */
+  async recordCost(entry: {
+    provider: string;
+    model: string;
+    tokens: number;
+    cost: number;
+  }): Promise<void> {
+    await this.costTracker.initialize();
+    await this.costTracker.recordCost(entry);
+  }
 }

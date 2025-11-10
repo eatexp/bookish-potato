@@ -16,7 +16,7 @@ export async function gpuInfoCommand(options: GPUInfoOptions): Promise<void> {
       const interval = (options.interval ?? 1) * 1000; // Convert to ms
       console.log(`Watching GPU metrics (refresh every ${options.interval ?? 1}s). Press Ctrl+C to exit.\n`);
 
-      const displayMetrics = async () => {
+      const displayMetrics = async (): Promise<void> => {
         const metrics = await detector.getMetrics();
         const health = await detector.healthCheck();
 
@@ -32,12 +32,14 @@ export async function gpuInfoCommand(options: GPUInfoOptions): Promise<void> {
       await displayMetrics();
 
       // Then set up interval
-      const intervalId = setInterval(displayMetrics, interval);
+      const intervalId = setInterval(() => {
+        void displayMetrics();
+      }, interval);
 
       // Handle cleanup
-      process.on('SIGINT', async () => {
+      process.on('SIGINT', () => {
         clearInterval(intervalId);
-        await detector.cleanup();
+        void detector.cleanup();
         process.exit(0);
       });
     } else {

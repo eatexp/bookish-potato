@@ -3,7 +3,7 @@ import { SimpleRouter } from '../routers/simple-router';
 import { APIFirstRouter } from '../routers/api-first-router';
 import { ModelRouter, RouteDecision } from '../core/model-router';
 import { createProvider } from '../utils/provider-factory';
-import { InferenceResponse } from '../core/model-provider';
+import { InferenceResponse, ModelProvider } from '../core/model-provider';
 import { loadConfigWithEnv, WorkbenchConfig } from '../utils/config-loader';
 
 interface RouteCommandOptions {
@@ -258,7 +258,7 @@ async function executeInference(
  * Execute streaming inference with live output
  */
 async function executeStreamingInference(
-  provider: any,
+  provider: ModelProvider,
   model: string,
   prompt: string,
   options: RouteCommandOptions
@@ -277,11 +277,11 @@ async function executeStreamingInference(
 
   for await (const chunk of generator) {
     if ('text' in chunk && 'done' in chunk) {
-      // Stream chunk
+      // Stream chunk - yield type
       process.stdout.write(chunk.text);
     } else {
-      // Final result
-      result = chunk;
+      // Final result - return type
+      result = chunk as InferenceResponse;
     }
   }
 
@@ -350,25 +350,20 @@ async function recordCost(
   }
 
   try {
-    const costTracker = (router as any).costTracker;
-    if (costTracker) {
-      await costTracker.recordCost({
-        provider: decision.target.provider,
-        model: decision.target.model,
-        promptTokens: result.promptTokens,
-        completionTokens: result.completionTokens,
-        totalTokens: result.totalTokens,
-        cost: decision.estimatedCost,
-      });
+    await router.recordCost({
+      provider: decision.target.provider,
+      model: decision.target.model,
+      tokens: result.totalTokens,
+      cost: decision.estimatedCost,
+    });
 
-      const monthlySpend = await costTracker.getMonthlySpend();
-      const remaining = (router as any).config.monthlyBudget - monthlySpend;
+    const monthlySpend = await router.getMonthlySpend();
+    const remaining = await router.getRemainingBudget();
 
-      console.log('Budget Status:');
-      console.log(`  Monthly spend:     $${monthlySpend.toFixed(2)}`);
-      console.log(`  Remaining budget:  $${remaining.toFixed(2)}`);
-      console.log();
-    }
+    console.log('Budget Status:');
+    console.log(`  Monthly spend:     $${monthlySpend.toFixed(2)}`);
+    console.log(`  Remaining budget:  $${remaining.toFixed(2)}`);
+    console.log();
   } catch (error) {
     // Don't fail the command if cost tracking fails
     console.warn('Warning: Failed to record cost:', error);
