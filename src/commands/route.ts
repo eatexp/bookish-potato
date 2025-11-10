@@ -4,6 +4,7 @@ import { APIFirstRouter } from '../routers/api-first-router';
 import { ModelRouter, RouteDecision } from '../core/model-router';
 import { createProvider } from '../utils/provider-factory';
 import { InferenceResponse } from '../core/model-provider';
+import { loadConfigWithEnv, WorkbenchConfig } from '../utils/config-loader';
 
 interface RouteCommandOptions {
   dryRun?: boolean;
@@ -17,6 +18,26 @@ interface RouteCommandOptions {
 
 export async function routeCommand(prompt: string, options: RouteCommandOptions): Promise<void> {
   try {
+    // Load config if provided
+    let config: WorkbenchConfig | undefined;
+    if (options.config) {
+      try {
+        config = loadConfigWithEnv(options.config);
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new Error(`Failed to load configuration: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+
+    // Apply defaults from config if not provided via CLI
+    if (config?.defaults) {
+      options.temperature = options.temperature ?? config.defaults.temperature;
+      options.maxTokens = options.maxTokens ?? config.defaults.maxTokens;
+      options.stream = options.stream ?? config.defaults.stream;
+    }
+
     // Select router based on options
     const router = selectRouter(options.router || 'cost-aware', options.config);
 
@@ -53,7 +74,7 @@ export async function routeCommand(prompt: string, options: RouteCommandOptions)
       console.log('═'.repeat(65));
       console.log();
 
-      const result = await executeInference(decision, prompt, options);
+      const result = await executeInference(decision, prompt, options, config?.providers);
 
       // Display results
       displayInferenceResult(result, decision);
@@ -81,18 +102,38 @@ export async function routeCommand(prompt: string, options: RouteCommandOptions)
 /**
  * Select router based on name and optional config
  */
-function selectRouter(routerName: string, _configPath?: string): ModelRouter {
-  // TODO: Load from YAML config if _configPath provided
+function selectRouter(routerName: string, configPath?: string): ModelRouter {
+  let config: WorkbenchConfig | undefined;
+
+  // Load from YAML config if provided
+  if (configPath) {
+    try {
+      config = loadConfigWithEnv(configPath);
+      console.log(`Loaded configuration from: ${configPath}`);
+
+      // Use router type from config if not overridden by CLI
+      if (config.router.type && routerName === 'cost-aware') {
+        routerName = config.router.type;
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to load configuration: ${error.message}`);
+      }
+      throw error;
+    }
+  }
 
   switch (routerName.toLowerCase()) {
     case 'simple':
-      return new SimpleRouter();
+      return new SimpleRouter(config?.router.simple || {});
 
     case 'cost-aware':
-      return new CostAwareRouter({ monthlyBudget: 100 }); // Default budget
+      return new CostAwareRouter(
+        config?.router.costAware || { monthlyBudget: 100 } // Default budget
+      );
 
     case 'api-first':
-      return new APIFirstRouter();
+      return new APIFirstRouter(config?.router.apiFirst || {});
 
     default:
       throw new Error(`Unknown router: ${routerName}. Available: simple, cost-aware, api-first`);
@@ -172,11 +213,12 @@ function displayAlternatives(alternatives: RouteDecision[]): void {
 async function executeInference(
   decision: RouteDecision,
   prompt: string,
-  options: RouteCommandOptions
+  options: RouteCommandOptions,
+  providerConfig?: WorkbenchConfig['providers']
 ): Promise<InferenceResponse> {
   try {
     // Create provider instance
-    const provider = createProvider(decision.target.provider);
+    const provider = createProvider(decision.target.provider, providerConfig);
 
     // Check if provider is available
     const available = await provider.isAvailable();

@@ -50,6 +50,8 @@ export { CostTracker, getCostTracker } from './utils/cost-tracker';
 export type { CostEntry, MonthlySummary } from './utils/cost-tracker';
 export { createProvider, isProviderAvailable, getAvailableProviders } from './utils/provider-factory';
 export type { ProviderFactoryConfig } from './utils/provider-factory';
+export { loadConfig, loadConfigWithEnv, getDefaultConfigYAML } from './utils/config-loader';
+export type { WorkbenchConfig } from './utils/config-loader';
 
 // Version
 export const VERSION = '0.1.0';

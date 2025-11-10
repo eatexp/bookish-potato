@@ -1,0 +1,88 @@
+# Hybrid AI Workbench Configuration Example
+# Copy this file to workbench.config.yaml and customize as needed
+
+# Router configuration
+router:
+  type: cost-aware  # Options: simple | cost-aware | api-first
+
+  # Cost-aware router settings (used when type is 'cost-aware')
+  costAware:
+    monthlyBudget: 100.00         # Monthly API budget limit in USD
+    defaultLocal: qwen3-coder-30b # Default local model
+    complexityThreshold: 0.8      # Complexity threshold for API escalation (0-1)
+    tokenThreshold: 16000         # Token threshold for API escalation
+
+  # Simple router settings (used when type is 'simple')
+  # Uncomment and configure to use simple router
+  # simple:
+  #   defaultModel: qwen3-coder-30b
+  #   defaultProvider: ollama
+
+  # API-first router settings (used when type is 'api-first')
+  # Uncomment and configure to use API-first router
+  # apiFirst:
+  #   defaultModel: claude-opus-4
+  #   defaultProvider: anthropic
+  #   fallbackToLocal: true
+  #   localFallbackModel: qwen3-coder-30b
+
+# Provider configurations
+providers:
+  ollama:
+    baseUrl: http://localhost:11434
+    timeout: 120000  # 2 minutes in milliseconds
+
+  anthropic:
+    apiKey: ${ANTHROPIC_API_KEY}  # Use environment variable
+    timeout: 120000
+
+  openai:
+    apiKey: ${OPENAI_API_KEY}
+    timeout: 120000
+    # organization: org-123456  # Optional: specify organization ID
+
+# Default inference parameters
+# These can be overridden by CLI options
+defaults:
+  temperature: 0.7    # Sampling temperature (0-2)
+  maxTokens: 4096     # Maximum tokens to generate
+  stream: false       # Enable streaming by default
+
+# Example configurations for different use cases:
+
+# ===== BUDGET-CONSCIOUS DEVELOPER =====
+# router:
+#   type: cost-aware
+#   costAware:
+#     monthlyBudget: 20.00
+#     defaultLocal: qwen3-coder-30b
+#     complexityThreshold: 0.9  # Higher threshold = more local usage
+#     tokenThreshold: 32000
+# defaults:
+#   temperature: 0.5
+#   maxTokens: 2048
+
+# ===== QUALITY-FIRST TEAM =====
+# router:
+#   type: api-first
+#   apiFirst:
+#     defaultModel: claude-opus-4
+#     defaultProvider: anthropic
+#     fallbackToLocal: true
+# defaults:
+#   temperature: 0.8
+#   maxTokens: 8192
+#   stream: true
+
+# ===== OFFLINE/AIR-GAPPED ENVIRONMENT =====
+# router:
+#   type: simple
+#   simple:
+#     defaultModel: llama-3.1-70b
+#     defaultProvider: ollama
+# providers:
+#   ollama:
+#     baseUrl: http://localhost:11434
+# defaults:
+#   temperature: 0.7
+#   maxTokens: 4096
