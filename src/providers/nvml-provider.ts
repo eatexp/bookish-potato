@@ -82,8 +82,10 @@ export class NVMLProvider extends BaseGPUProvider {
   async isAvailable(): Promise<boolean> {
     try {
       // Try to dynamically import the optional dependency
-      // @ts-ignore - optional dependency may not be installed
+      // @ts-expect-error - optional dependency may not be installed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const module = await import('node-nvidia-smi');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       this.nvidiaSmi = module.default as NvidiaSMI;
 
       // Test if we can actually query
@@ -270,6 +272,11 @@ export class NVMLProvider extends BaseGPUProvider {
     return 'sm_unknown';
   }
 
+  /**
+   * Cleanup provider resources
+   * @note Must be async to match GPUProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async cleanup(): Promise<void> {
     // NVML bindings are automatically cleaned up by the module
     this.nvidiaSmi = undefined;

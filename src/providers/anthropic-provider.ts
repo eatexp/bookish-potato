@@ -54,6 +54,15 @@ interface AnthropicMessagesResponse {
 }
 
 /**
+ * Anthropic error response
+ */
+interface AnthropicErrorResponse {
+  error?: {
+    message?: string;
+  } | string;
+}
+
+/**
  * Anthropic streaming event types
  */
 interface AnthropicStreamEvent {
@@ -117,6 +126,11 @@ export class AnthropicProvider extends BaseModelProvider {
     this.apiVersion = '2023-06-01';
   }
 
+  /**
+   * Check if provider is available
+   * @note Must be async to match ModelProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async isAvailable(): Promise<boolean> {
     try {
       // Simple check: verify API key format
@@ -132,6 +146,11 @@ export class AnthropicProvider extends BaseModelProvider {
     }
   }
 
+  /**
+   * List available models
+   * @note Must be async to match ModelProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async listModels(): Promise<string[]> {
     // Anthropic doesn't provide a models endpoint
     // Return the known available models
@@ -177,9 +196,10 @@ export class AnthropicProvider extends BaseModelProvider {
       if (!response.ok) {
         const errorData = (await response
           .json()
-          .catch(() => ({ error: response.statusText }))) as any;
+          .catch(() => ({ error: response.statusText }))) as AnthropicErrorResponse;
         const errorMsg =
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`;
+          (typeof errorData.error === 'object' ? errorData.error.message : errorData.error) ||
+          `HTTP ${response.status}`;
         throw new Error(`Anthropic API error: ${errorMsg}`);
       }
 
@@ -265,9 +285,10 @@ export class AnthropicProvider extends BaseModelProvider {
       if (!response.ok) {
         const errorData = (await response
           .json()
-          .catch(() => ({ error: response.statusText }))) as any;
+          .catch(() => ({ error: response.statusText }))) as AnthropicErrorResponse;
         const errorMsg =
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`;
+          (typeof errorData.error === 'object' ? errorData.error.message : errorData.error) ||
+          `HTTP ${response.status}`;
         throw new Error(`Anthropic API error: ${errorMsg}`);
       }
 
@@ -279,12 +300,14 @@ export class AnthropicProvider extends BaseModelProvider {
       const decoder = new TextDecoder();
 
       while (true) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const { done, value } = await reader.read();
 
         if (done) {
           break;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n').filter((line) => line.trim());
 
@@ -293,6 +316,7 @@ export class AnthropicProvider extends BaseModelProvider {
             const jsonStr = line.slice(6); // Remove "data: " prefix
 
             try {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               const event: AnthropicStreamEvent = JSON.parse(jsonStr);
 
               if (event.type === 'message_start' && event.message) {

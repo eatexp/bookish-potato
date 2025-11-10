@@ -74,6 +74,15 @@ interface OpenAIChatStreamChunk {
 }
 
 /**
+ * OpenAI error response
+ */
+interface OpenAIErrorResponse {
+  error?: {
+    message?: string;
+  } | string;
+}
+
+/**
  * OpenAI models list response
  */
 interface OpenAIModelsResponse {
@@ -108,6 +117,11 @@ export class OpenAIProvider extends BaseModelProvider {
     this.organization = config.organization;
   }
 
+  /**
+   * Check if provider is available
+   * @note Must be async to match ModelProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async isAvailable(): Promise<boolean> {
     try {
       // Simple check: verify API key format
@@ -216,9 +230,10 @@ export class OpenAIProvider extends BaseModelProvider {
       if (!response.ok) {
         const errorData = (await response
           .json()
-          .catch(() => ({ error: response.statusText }))) as any;
+          .catch(() => ({ error: response.statusText }))) as OpenAIErrorResponse;
         const errorMsg =
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`;
+          (typeof errorData.error === 'object' ? errorData.error.message : errorData.error) ||
+          `HTTP ${response.status}`;
         throw new Error(`OpenAI API error: ${errorMsg}`);
       }
 
@@ -320,9 +335,10 @@ export class OpenAIProvider extends BaseModelProvider {
       if (!response.ok) {
         const errorData = (await response
           .json()
-          .catch(() => ({ error: response.statusText }))) as any;
+          .catch(() => ({ error: response.statusText }))) as OpenAIErrorResponse;
         const errorMsg =
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`;
+          (typeof errorData.error === 'object' ? errorData.error.message : errorData.error) ||
+          `HTTP ${response.status}`;
         throw new Error(`OpenAI API error: ${errorMsg}`);
       }
 
@@ -334,12 +350,14 @@ export class OpenAIProvider extends BaseModelProvider {
       const decoder = new TextDecoder();
 
       while (true) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const { done, value } = await reader.read();
 
         if (done) {
           break;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n').filter((line) => line.trim());
 
@@ -352,6 +370,7 @@ export class OpenAIProvider extends BaseModelProvider {
             }
 
             try {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               const data: OpenAIChatStreamChunk = JSON.parse(jsonStr);
 
               const choice = data.choices[0];

@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// Console output is intentional in CLI commands
 import { createGPUDetector } from '../utils/gpu-factory';
 import { GPUMetrics } from '../core/gpu-provider';
 

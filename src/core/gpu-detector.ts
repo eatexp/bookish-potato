@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// Console output is intentional for debugging GPU detection
 /**
  * GPU Detector - ADR-003
  *

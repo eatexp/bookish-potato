@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// Console output is intentional in CLI commands
 interface AuditOptions {
   json?: boolean;
   interactive?: boolean;

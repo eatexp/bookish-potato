@@ -72,6 +72,7 @@ export class CostTracker {
     // Load existing data
     try {
       const data = await fs.readFile(this.filePath, 'utf-8');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       this.entries = JSON.parse(data);
       this.loaded = true;
     } catch (error) {

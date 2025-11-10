@@ -183,7 +183,7 @@ function expandEnvVars(obj: unknown): void {
 
     if (typeof value === 'string') {
       // Replace ${ENV_VAR} with process.env['ENV_VAR']
-      record[key] = value.replace(/\$\{([^}]+)\}/g, (_match, envVar) => {
+      record[key] = value.replace(/\$\{([^}]+)\}/g, (_match, envVar: string) => {
         return process.env[envVar] || '';
       });
     } else if (typeof value === 'object' && value !== null) {

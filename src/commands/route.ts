@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// Console output is intentional in CLI commands
 import { CostAwareRouter } from '../routers/cost-aware-router';
 import { SimpleRouter } from '../routers/simple-router';
 import { APIFirstRouter } from '../routers/api-first-router';
