@@ -38,6 +38,11 @@ export class SimpleRouter extends BaseModelRouter {
     };
   }
 
+  /**
+   * Route inference request (always to local models)
+   * @note Must be async to match ModelRouter interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async route(request: InferenceRequest, options?: RoutingOptions): Promise<RouteDecision> {
     // Force overrides if specified
     if (options?.forceModel || options?.forceProvider) {

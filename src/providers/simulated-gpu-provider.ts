@@ -57,11 +57,21 @@ export class SimulatedGPUProvider extends BaseGPUProvider {
     this.startTime = Date.now();
   }
 
+  /**
+   * Check if provider is available (always true for simulated)
+   * @note Must be async to match GPUProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async isAvailable(): Promise<boolean> {
     // Simulated provider is always available (fallback of last resort)
     return true;
   }
 
+  /**
+   * Get GPU metrics (static or dynamic based on config)
+   * @note Must be async to match GPUProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getMetrics(): Promise<GPUMetrics> {
     const metrics = this.config.dynamic ? this.generateDynamicMetrics() : this.generateStaticMetrics();
 
@@ -71,6 +81,11 @@ export class SimulatedGPUProvider extends BaseGPUProvider {
     return metrics;
   }
 
+  /**
+   * Health check (always healthy for simulated)
+   * @note Must be async to match GPUProvider interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   override async healthCheck(): Promise<HealthCheckResult> {
     return {
       healthy: true,

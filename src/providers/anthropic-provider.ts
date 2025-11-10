@@ -227,7 +227,7 @@ export class AnthropicProvider extends BaseModelProvider {
     let fullResponse = '';
     let promptTokens = 0;
     let completionTokens = 0;
-    let stopReason: 'end_turn' | 'max_tokens' | 'stop_sequence' | null = null;
+    const stopReason: 'end_turn' | 'max_tokens' | 'stop_sequence' | null = null;
 
     try {
       const requestBody: AnthropicMessagesRequest = {

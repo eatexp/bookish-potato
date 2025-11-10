@@ -135,11 +135,11 @@ export class DockerAwareGPUDetector extends GPUDetector {
       // as NVML bindings can be unreliable
       orderedProviders = providers.sort((a, b) => {
         // Simulated always last
-        if (a.tier === 3) return 1;
-        if (b.tier === 3) return -1;
+        if (a.tier === 3) {return 1;}
+        if (b.tier === 3) {return -1;}
         // Prefer Tier 2 (nvidia-smi) in containerized environments
-        if (a.tier === 2 && b.tier === 1) return -1;
-        if (a.tier === 1 && b.tier === 2) return 1;
+        if (a.tier === 2 && b.tier === 1) {return -1;}
+        if (a.tier === 1 && b.tier === 2) {return 1;}
         return 0;
       });
 

@@ -63,7 +63,7 @@ export class CostTracker {
    * Initialize tracker and load existing data
    */
   async initialize(): Promise<void> {
-    if (this.loaded) return;
+    if (this.loaded) {return;}
 
     // Ensure directory exists
     const dir = path.dirname(this.filePath);

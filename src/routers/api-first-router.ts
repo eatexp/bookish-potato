@@ -44,6 +44,11 @@ export class APIFirstRouter extends BaseModelRouter {
     };
   }
 
+  /**
+   * Route inference request (prefers API, falls back to local if configured)
+   * @note Must be async to match ModelRouter interface
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async route(request: InferenceRequest, options?: RoutingOptions): Promise<RouteDecision> {
     // Force overrides if specified
     if (options?.forceModel || options?.forceProvider) {
