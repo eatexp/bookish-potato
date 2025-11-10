@@ -1,6 +1,6 @@
 # Hybrid AI Workbench
 
-[![Tests](https://img.shields.io/badge/tests-193%20passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-226%20passing-brightgreen)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)](coverage/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -19,7 +19,7 @@ A production-ready AI routing and execution system that intelligently balances *
 - **Docker/WSL Aware**: Automatically detects containerized environments and reorders GPU provider fallbacks
 - **Rich CLI Interface**: Interactive commands with dry-run mode, explain mode, watch mode, and streaming
 - **Type-Safe**: Full TypeScript strict mode with comprehensive type definitions
-- **Well-Tested**: 193 unit tests with 87% code coverage
+- **Well-Tested**: 226 tests (193 unit + 33 integration) with 87% code coverage
 
 ## Quick Start
 
@@ -530,21 +530,43 @@ gpu:
 
 ## Testing
 
+The project includes comprehensive unit and integration tests:
+
 ```bash
-# Run all tests
+# Run all tests (unit + integration)
 npm test
 
-# Run with coverage
+# Run with coverage report
 npm run test:coverage
 
-# Run specific test suite
+# Run only unit tests
+npm test -- tests/unit
+
+# Run only integration tests
+npm test -- tests/integration
+
+# Run specific test file
 npm test -- simple-router.test.ts
 
 # Watch mode for development
 npm test -- --watch
 ```
 
-**Current test coverage**: 102 tests passing, 78% coverage
+### Test Structure
+
+- **Unit Tests** (`tests/unit/`): 193 tests covering individual components
+  - Router implementations (simple, cost-aware, api-first)
+  - Model providers (Ollama, Anthropic, OpenAI)
+  - GPU providers (NVML, nvidia-smi, simulated)
+  - Cost tracking and configuration loading
+
+- **Integration Tests** (`tests/integration/`): 33 end-to-end workflow tests
+  - `simple-router-workflow.test.ts`: Complete routing and execution workflow
+  - `cost-aware-workflow.test.ts`: Budget tracking and enforcement
+  - `config-and-provider-workflow.test.ts`: YAML config loading and provider instantiation
+  - `streaming-workflow.test.ts`: Real-time streaming across all providers
+
+**Test Statistics**: 226 tests passing, 87% code coverage
 
 ## Development
 
