@@ -1,0 +1,79 @@
+{
+  "name": "rtx5090-optimization",
+  "version": "1.0.0",
+  "description": "Technical whitepaper on optimizing RTX 5090 for hybrid AI model configurations",
+  "main": "rtx5090/index.html",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint rtx5090/**/*.js",
+    "serve": "npx serve rtx5090",
+    "validate": "npm run lint && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eatexp/bookish-potato.git"
+  },
+  "keywords": [
+    "rtx5090",
+    "nvidia",
+    "ai",
+    "llm",
+    "quantization",
+    "vram",
+    "optimization",
+    "hybrid-architecture"
+  ],
+  "author": "Jamie.Xp",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eatexp/bookish-potato/issues"
+  },
+  "homepage": "https://github.com/eatexp/bookish-potato#readme",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "rtx5090/**/*.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov"
+    ]
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "es2021": true,
+      "jest": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": "latest"
+    },
+    "globals": {
+      "echarts": "readonly",
+      "anime": "readonly",
+      "Typed": "readonly"
+    },
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
