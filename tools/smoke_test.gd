@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Headless checks: maps connect, collate/crack, catalogue slips, crawl, recap.
+## Headless checks: survivor loop, three-card level-up, collate/crack, recap desk.
 
 
 func _init() -> void:
@@ -9,9 +9,9 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures := 0
-	failures += _maps()
 	failures += _catalog()
-	failures += _slips()
+	failures += _cards()
+	failures += _copy()
 	failures += _run_loop()
 	if failures > 0:
 		push_error("SMOKE FAILED (%d)" % failures)
@@ -21,79 +21,84 @@ func _run() -> void:
 		quit(0)
 
 
-func _maps() -> int:
-	var fails := 0
-	for seed in range(1, 21):
-		var rng := RandomNumberGenerator.new()
-		rng.seed = seed
-		var depth := 1 + (seed % Catalog.DEPTHS)
-		var gen: Dictionary = MapGen.generate(rng, depth)
-		var tiles: Array = gen.tiles
-		var start: Vector2i = gen.start
-		var stairs: Vector2i = gen.stairs
-		if not MapGen._reachable(tiles, start.x, start.y, stairs.x, stairs.y):
-			push_error("map seed %d depth %d not connected" % [seed, depth])
-			fails += 1
-		var floors := 0
-		for y in Catalog.MAP_H:
-			for x in Catalog.MAP_W:
-				if Catalog.tile_walkable(tiles[y][x]):
-					floors += 1
-		if floors < 40:
-			push_error("map seed %d too small (%d floors)" % [seed, floors])
-			fails += 1
-	print("maps: %d failures / 20 seeds" % fails)
-	return fails
-
-
 func _catalog() -> int:
+	if Catalog.identity_count() < 8 or Catalog.identity_count() > 12:
+		push_error("identity count %d not in 8–12" % Catalog.identity_count())
+		return 1
+	if Catalog.MAX_WEAPONS != 6:
+		push_error("max tomes should be 6")
+		return 1
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
-	var flare := 0
+	var strong := 0
 	var curse := 0
 	for _i in 40:
 		var unid: Dictionary = Catalog.unidentified(rng)
 		if str(unid.tell) == "":
 			push_error("unid missing tell")
 			return 1
-		var r: Dictionary = Catalog.resolve_unidentified(rng, 4, true, str(unid.quality), false)
-		if str(r.outcome) == "flare":
-			flare += 1
+		var r: Dictionary = Catalog.resolve_unidentified(rng, true, str(unid.quality), false, "cookery")
+		if str(r.outcome) == "strong":
+			strong += 1
 		elif str(r.outcome) == "curse":
 			curse += 1
-		if (r.item as Dictionary).is_empty():
-			push_error("identify returned empty item")
-			return 1
-	# Pity: two curses then block.
-	var blocked: Dictionary = Catalog.resolve_unidentified(rng, 4, true, "sour", true)
+	var blocked: Dictionary = Catalog.resolve_unidentified(rng, true, "sour", true, "cookery")
 	if str(blocked.outcome) == "curse":
 		push_error("pity failed to block a curse")
 		return 1
-	if flare == 0 or curse == 0:
-		push_error("crack distribution looks broken flare=%d curse=%d" % [flare, curse])
+	if strong == 0 or curse == 0:
+		push_error("crack distribution broken strong=%d curse=%d" % [strong, curse])
 		return 1
 	for k in Catalog.enemy_kinds():
-		var e: Dictionary = Catalog.enemy_template(str(k), 4)
-		if int(e.hp) <= 0:
+		var e: Dictionary = Catalog.enemy_template(str(k), 2.0)
+		if float(e.hp) <= 0.0:
 			push_error("bad enemy %s" % k)
 			return 1
-	print("catalog: flare=%d curse=%d in 40 cracks; pity held" % [flare, curse])
+	print("catalog: identities=%d strong=%d curse=%d pity held" % [Catalog.identity_count(), strong, curse])
 	return 0
 
 
-func _slips() -> int:
+func _cards() -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
-	for s in CatalogueDraw.shelves():
-		var three: Array = CatalogueDraw.draw_three(rng, 3, str(s.id))
-		if three.size() != 3:
-			push_error("shelf %s did not yield 3 slips" % s.id)
+	var three: Array = CatalogueDraw.draw_levelup(rng)
+	if three.size() != 3:
+		push_error("level-up did not yield 3 cards")
+		return 1
+	for slip in three:
+		if str(slip.title) == "" or str(slip.note) == "" or str(slip.stamp) == "":
+			push_error("blank level-up card")
 			return 1
-		for slip in three:
-			if str(slip.title) == "" or str(slip.note) == "":
-				push_error("blank slip on %s" % s.id)
+	print("catalogue: 3 cards ok")
+	return 0
+
+
+func _copy() -> int:
+	var paths := [
+		"res://README.md",
+		"res://scripts/ui/how_to_play.gd",
+		"res://scripts/ui/main_menu.gd",
+		"res://scripts/ui/game_root.gd",
+	]
+	var banned := [
+		"JACKPOT", "WAGER", "PAYLINE", "PAYOUT", "NEAR-MISS", "SLOT MACHINE",
+		"HOUSE EDGE", "THREE-REEL",
+	]
+	for p in paths:
+		if not FileAccess.file_exists(p):
+			push_error("missing %s" % p)
+			return 1
+		var t := FileAccess.get_file_as_string(p)
+		var up := t.to_upper()
+		for b in banned:
+			if up.find(b) >= 0:
+				push_error("%s contains banned %s" % [p, b])
 				return 1
-	print("catalogue: 5 shelves × 3 slips ok")
+		if p.ends_with("README.md") or p.ends_with("how_to_play.gd") or p.ends_with("main_menu.gd"):
+			if t.find("does not contain any real-world currency gambling") < 0:
+				push_error("%s missing no-MTX line" % p)
+				return 1
+	print("copy: banned verbs absent; legal line present")
 	return 0
 
 
@@ -104,63 +109,76 @@ func _run_loop() -> int:
 	if not G.run_active:
 		push_error("new_run did not start")
 		return 1
-	if not G.is_floor_connected():
-		push_error("seed 42 floor not connected")
+	if G.weapons.is_empty():
+		push_error("no starting tome")
 		return 1
-	if Catalog.DEPTHS != 5:
-		push_error("v0.1 should be 5 floors")
+	if G.stacks.is_empty():
+		push_error("library stacks missing")
 		return 1
-	var moved := 0
-	for _i in 80:
-		if not G.run_active:
-			break
-		var step := false
-		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1)]:
-			var nx: int = G.player.x + d.x
-			var ny: int = G.player.y + d.y
-			if G.in_bounds(nx, ny) and (G.is_walkable(nx, ny) or int(G.tiles[ny][nx]) == Catalog.Tile.DOOR_C):
-				if G.try_move(d.x, d.y):
-					moved += 1
-					step = true
-					break
-		if not step:
-			G.wait_turn()
-	print("crawl: moved %d, depth %d, turn %d, hp %s, candle %s, connected %s" % [
-		moved, G.depth, G.turn, G.player.get("hp", "?"), G.candle, G.is_floor_connected()
-	])
-	var unid := Catalog.unidentified(G.rng)
-	G._stamp_uid(unid)
-	G.inventory.append(unid)
-	G.collate(G.inventory.size() - 1)
-	var unid2 := Catalog.unidentified(G.rng)
-	G._stamp_uid(unid2)
-	G.inventory.append(unid2)
-	G.crack_spine(G.inventory.size() - 1)
-	G.pages += 6
-	G._open_returns()
-	G.catalogue_choose_shelf("cookery")
+	G.player.iframe = 10.0
+	G.smoke_move = Vector2(1, 0)
+	var start_x: float = G.player.pos.x
+	for _i in 40:
+		G.tick(0.05)
+	if absf(G.player.pos.x - start_x) < 1.0:
+		push_error("player did not move")
+		return 1
+	if G.projectiles.is_empty() and G.elapsed > 0.4:
+		# Margin Notes should have fired.
+		push_error("no auto-fire projectiles")
+		return 1
+	print("move+fire: x %.1f  projectiles %d  enemies %d" % [G.player.pos.x, G.projectiles.size(), G.enemies.size()])
+	G.smoke_move = Vector2.ZERO
+	G.force_levelup()
+	if G.phase != G.Phase.LEVELUP:
+		push_error("level-up did not pause")
+		return 1
 	if G.catalogue_slips.size() != 3:
-		push_error("catalogue did not lay out slips")
+		push_error("level-up not 3 cards")
 		return 1
-	G.catalogue_lock(0)
-	G.catalogue_redraw(1)
+	var before_w: int = G.weapons.size()
 	G.catalogue_take(0)
-	G.continue_from_stack()
-	if G.run_active:
-		G.cause = "smoke-test scholarly injury"
-		G.player.hp = 0
-		G._end(false)
+	if G.phase == G.Phase.LEVELUP:
+		push_error("take did not close level-up")
+		return 1
+	print("level-up take ok; weapons %d→? now %d last=%s" % [before_w, G.weapons.size(), G.last_slam])
+	G.force_folio()
+	if G.phase != G.Phase.FOLIO:
+		push_error("folio pause missing")
+		return 1
+	G.folio_collate()
+	if G.phase != G.Phase.RUN:
+		push_error("collate did not resume")
+		return 1
+	G.force_folio()
+	G.folio_crack()
+	G.cause = "smoke-test scholarly injury"
+	G.player.hp = 0
+	G._end(false)
 	if G.run_active:
 		push_error("run still active after death")
 		return 1
 	if P.graveyard.is_empty():
 		push_error("graveyard empty after death")
 		return 1
-	G.new_run(1001)
-	G.has_notable = true
-	G._win()
-	if not G.won:
-		push_error("win path failed")
+	P.bank_pages = Catalog.FOLIO_COST + 2
+	if not G.stamp_next_folio():
+		push_error("returns desk could not stamp a folio")
 		return 1
-	print("run loop ok; graveyard %d" % P.graveyard.size())
+	G.new_run(1002)
+	var folios := 0
+	for it in G.pickups:
+		if int(it.kind) == Catalog.Pickup.FOLIO:
+			folios += 1
+	if folios < 1:
+		push_error("next-run folio did not appear on the floor")
+		return 1
+	G.elapsed = Catalog.STAGE_SECS
+	G.phase = G.Phase.RUN
+	G.run_active = true
+	G.tick(0.02)
+	if not G.won:
+		push_error("closing the hour did not win")
+		return 1
+	print("run loop ok; graveyard %d bank %d" % [P.graveyard.size(), P.bank_pages])
 	return 0

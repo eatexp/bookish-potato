@@ -1,64 +1,67 @@
 extends Node
 
-## Run simulation. No mid-run save. Permadeath.
+## Real-time stacks. WASD, auto-fire, one library floor. Permadeath of the run.
 
-signal turn_done
+signal frame_done
 signal run_ended
-signal floor_changed
-signal stack_opened
-signal stack_closed
+signal levelup_opened
+signal levelup_closed
+signal folio_opened
+signal folio_closed
 signal recap_ready
 
-enum Phase { MENU, DUNGEON, STACK, PAUSED, RECAP }
-
-const T := Catalog.Tile
-const W := Catalog.MAP_W
-const H := Catalog.MAP_H
+enum Phase { MENU, RUN, LEVELUP, FOLIO, PAUSED, RECAP }
 
 var rng := RandomNumberGenerator.new()
 var phase: int = Phase.MENU
 var run_active := false
 var seed_used := 0
-var depth := 1
-var turn := 0
-var wax_acc := 0
 
-var tiles: Array = []
-var variant: Array = []
-var explored: Array = []
-var visible: Array = []
-var rooms: Array = []
-var start_pos := Vector2i.ZERO
-var stairs_pos := Vector2i.ZERO
-var items_at: Dictionary = {} # Vector2i -> Array
-var entities: Array = []
-var player: Dictionary = {}
-var next_id := 1
+var elapsed := 0.0
+var player_level := 1
+var xp := 0
+var xp_next := 10
+var pending_levelups := 0
 
 var gold := 0
 var pages := 0
-var candle := 90
-var candle_max := 100
-var inventory: Array = []
-var equipped_tome: Dictionary = {}
-var equipped_binding: Dictionary = {}
-var has_notable := false
-
-var messages: Array[String] = []
 var kills := 0
+var cracks := 0
+var crack_strong := 0
+var curse_streak := 0
 var cause := ""
 var won := false
-var biggest_win := {"desc": "none", "value": 0}
-var biggest_loss := {"desc": "none", "value": 0}
-var cracks := 0
-var crack_wins := 0
-var curse_streak := 0
-var miss_turns := 0
-var between_desk := false
-var catalogue_slips: Array = []
-var catalogue_shelf := ""
+var biggest_find := {"desc": "none", "value": 0}
+var worst_misfile := {"desc": "none", "value": 0}
 var last_identify := {}
-var look_name := ""
+var messages: Array[String] = []
+
+var player := {}
+var weapons: Array = []
+var passives: Array = []
+var next_id := 1
+var next_uid := 1
+
+var enemies: Array = []
+var projectiles: Array = []
+var pickups: Array = []
+var stacks: Array = []
+
+var spawn_acc := 0.0
+var sfx_fire_cd := 0.0
+var surge_started := false
+
+var catalogue_slips: Array = []
+var pending_folio := {}
+var last_slam := ""
+
+var smoke_move := Vector2.ZERO
+
+
+func _process(dt: float) -> void:
+	if phase == Phase.RUN and run_active:
+		tick(dt)
+		frame_done.emit()
 
 
 func new_run(p_seed: int = 0) -> void:
@@ -71,1096 +74,752 @@ func new_run(p_seed: int = 0) -> void:
 	run_active = true
 	won = false
 	cause = ""
-	depth = 1
-	turn = 0
-	wax_acc = 0
-	gold = 12
-	pages = 4
-	candle = 90
+	elapsed = 0.0
+	player_level = 1
+	xp = 0
+	xp_next = Catalog.xp_to_next(1)
+	pending_levelups = 0
+	gold = 0
+	pages = 0
 	kills = 0
 	cracks = 0
-	crack_wins = 0
+	crack_strong = 0
 	curse_streak = 0
-	miss_turns = 0
-	has_notable = false
-	between_desk = false
+	surge_started = false
+	spawn_acc = 0.35
+	sfx_fire_cd = 0.0
+	next_id = 1
+	next_uid = 1
 	catalogue_slips.clear()
-	catalogue_shelf = ""
+	pending_folio = {}
+	last_slam = ""
 	last_identify = {}
-	biggest_win = {"desc": "none", "value": 0}
-	biggest_loss = {"desc": "none", "value": 0}
+	biggest_find = {"desc": "none", "value": 0}
+	worst_misfile = {"desc": "none", "value": 0}
 	messages.clear()
-	inventory.clear()
-	equipped_tome = Catalog.starter_tome()
-	equipped_binding = Catalog.starter_binding()
-	_stamp_uid(equipped_tome)
-	_stamp_uid(equipped_binding)
-	inventory.append(Catalog.potion_starch())
-	_stamp_uid(inventory[0])
+	enemies.clear()
+	projectiles.clear()
+	pickups.clear()
+	weapons.clear()
+	passives.clear()
 	player = {
-		"id": 0,
-		"is_player": true,
+		"pos": Vector2.ZERO,
+		"facing": Vector2.RIGHT,
+		"hp": 100.0,
+		"hp_max": 100.0,
+		"speed": 168.0,
+		"radius": 12.0,
+		"iframe": 0.0,
 		"name": "the bookish potato",
-		"kind": "player",
-		"x": 0,
-		"y": 0,
-		"hp": 24,
-		"hp_max": 24,
-		"sprite": 0,
 	}
-	_log("You tuck Margin Notes under one arm and descend. The stacks smell of dust and wax.")
-	_make_floor()
-	phase = Phase.DUNGEON
-	floor_changed.emit()
-	turn_done.emit()
+	_build_stacks()
+	_add_weapon(Catalog.starter_tome())
+	_place_reserved_folios()
+	_log("The stacks are open. Margin Notes fires itself. The hour will close.")
+	phase = Phase.RUN
 
 
 func abandon_run() -> void:
 	if not run_active:
 		return
-	cause = "abandoned the stacks"
+	cause = "left before closing time"
 	_end(false)
 
 
-func _stamp_uid(item: Dictionary) -> void:
-	item.uid = next_id
-	next_id += 1
-
-
-func _make_floor() -> void:
-	var gen: Dictionary = MapGen.generate(rng, depth)
-	tiles = gen.tiles
-	variant = gen.variant
-	rooms = gen.rooms
-	start_pos = gen.start
-	stairs_pos = gen.stairs
-	items_at.clear()
-	entities.clear()
-	player.x = start_pos.x
-	player.y = start_pos.y
-	_init_memory()
-	_populate()
-	_recompute_fov()
-	if depth == 1:
-		_log("Chapter 1. A short lantern, a shorter floorplan.")
-	else:
-		_log("Chapter %d. A new floor of the stacks." % depth)
-
-
-func _init_memory() -> void:
-	explored = []
-	visible = []
-	for y in H:
-		var erow: Array = []
-		var vrow: Array = []
-		erow.resize(W)
-		vrow.resize(W)
-		erow.fill(false)
-		vrow.fill(false)
-		explored.append(erow)
-		visible.append(vrow)
-
-
-func _populate() -> void:
-	var spots: Array = []
-	for p in _walkable():
-		if absi(p.x - start_pos.x) + absi(p.y - start_pos.y) > 4:
-			spots.append(p)
-	_shuffle(spots)
-	var ei := 0
-	var enemy_n := 4 + depth + rng.randi_range(0, 1)
-	for _i in enemy_n:
-		if ei >= spots.size():
-			break
-		var pos: Vector2i = spots[ei]
-		ei += 1
-		if pos == stairs_pos:
-			continue
-		var kind := Catalog.pick_enemy_kind(rng, depth)
-		var e: Dictionary = Catalog.enemy_template(kind, depth)
-		e.id = next_id
-		next_id += 1
-		e.x = pos.x
-		e.y = pos.y
-		entities.append(e)
-
-	var loot_n := 5 + depth / 2
-	for _j in loot_n:
-		if ei >= spots.size():
-			break
-		var lp: Vector2i = spots[ei]
-		ei += 1
-		var roll := rng.randf()
-		var it: Dictionary
-		if roll < 0.28:
-			it = {"kind": "gold_pile", "name": "Gold", "amount": rng.randi_range(3, 8 + depth), "sprite": 14}
-		elif roll < 0.48:
-			it = {"kind": "pages_pile", "name": "Loose Pages", "amount": rng.randi_range(1, 3), "sprite": 15}
-		elif roll < 0.72:
-			it = Catalog.unidentified(rng)
-			_stamp_uid(it)
-		else:
-			it = Catalog.random_identified_loot(rng, depth, false)
-			if it.kind == "unid":
-				it = Catalog.unidentified(rng)
-			_stamp_uid(it)
-		_drop_at(lp, it)
-
-	if depth >= Catalog.DEPTHS:
-		_drop_at(stairs_pos, Catalog.notable_folio())
-		_stamp_uid(_top_item(stairs_pos))
-		_log("A lectern holds the Notable Folio. Take it and leave by the Binding Exit.")
-
-
-func _walkable() -> Array:
-	var out: Array = []
-	for y in H:
-		for x in W:
-			if Catalog.tile_walkable(tiles[y][x]):
-				out.append(Vector2i(x, y))
-	return out
-
-
-func _drop_at(pos: Vector2i, item: Dictionary) -> void:
-	if not items_at.has(pos):
-		items_at[pos] = []
-	items_at[pos].append(item)
-
-
-func _top_item(pos: Vector2i) -> Dictionary:
-	if not items_at.has(pos):
-		return {}
-	var arr: Array = items_at[pos]
-	if arr.is_empty():
-		return {}
-	return arr[arr.size() - 1]
-
-
-func in_bounds(x: int, y: int) -> bool:
-	return x >= 0 and y >= 0 and x < W and y < H
-
-
-func is_walkable(x: int, y: int) -> bool:
-	if not in_bounds(x, y):
-		return false
-	return Catalog.tile_walkable(tiles[y][x])
-
-
-func entity_at(x: int, y: int) -> Dictionary:
-	if player.get("x", -1) == x and player.get("y", -1) == y:
-		return player
-	for e in entities:
-		if e.x == x and e.y == y and int(e.hp) > 0:
-			return e
-	return {}
-
-
-func blocking_at(x: int, y: int) -> bool:
-	if not in_bounds(x, y):
-		return true
-	var t: int = int(tiles[y][x])
-	if t == T.WALL or t == T.VOID or t == T.SHELF or t == T.DOOR_C or t == T.DESK:
-		return true
-	return not entity_at(x, y).is_empty()
-
-
-func _recompute_fov() -> void:
-	var fov: Dictionary = Fov.compute(tiles, Vector2i(player.x, player.y), Catalog.FOV_R)
-	visible = fov.visible
-	for y in H:
-		for x in W:
-			if visible[y][x]:
-				explored[y][x] = true
-
-
-func _log(text: String) -> void:
-	messages.append(text)
-	if messages.size() > 80:
-		messages = messages.slice(messages.size() - 80)
-
-
-func last_messages(n: int = 6) -> PackedStringArray:
-	var out := PackedStringArray()
-	var start := maxi(0, messages.size() - n)
-	for i in range(start, messages.size()):
-		out.append(messages[i])
-	return out
-
-
-func player_atk() -> int:
-	var a := 1
-	if not equipped_tome.is_empty():
-		a += int(equipped_tome.atk)
-	return a
-
-
-func player_def() -> int:
-	var d := 0
-	if not equipped_binding.is_empty():
-		d += int(equipped_binding.def)
-	if not equipped_tome.is_empty():
-		d += int(equipped_tome.get("def", 0))
-	return d
-
-
-func try_move(dx: int, dy: int) -> bool:
-	if not run_active or phase != Phase.DUNGEON:
-		return false
-	if dx == 0 and dy == 0:
-		return wait_turn()
-	var nx: int = player.x + dx
-	var ny: int = player.y + dy
-	if not in_bounds(nx, ny):
-		return false
-	var t: int = int(tiles[ny][nx])
-	if t == T.WALL or t == T.VOID or t == T.SHELF:
-		_log("Stone. Unannotated.")
-		return false
-	if t == T.DOOR_C:
-		tiles[ny][nx] = T.DOOR_O
-		_log("You ease the door. Hinges complain in an old dialect.")
-		AudioMgr.play("open")
-		_spend_turn()
-		return true
-	if t == T.DESK:
-		_log("A dusty counter. The Returns Desk is between floors.")
-		return false
-	var other := entity_at(nx, ny)
-	if not other.is_empty() and not other.get("is_player", false):
-		_player_hit(other)
-		_spend_turn()
-		return true
-	if t == T.STAIRS_D:
-		player.x = nx
-		player.y = ny
-		_auto_pickup()
-		_descend()
-		return true
-	if t == T.EXIT:
-		player.x = nx
-		player.y = ny
-		if has_notable:
-			_win()
-			return true
-		_log("A sealed binding-arch. It wants the Notable Folio.")
-		_spend_turn()
-		return true
-	if not Catalog.tile_walkable(t):
-		return false
-	player.x = nx
-	player.y = ny
-	_auto_pickup()
-	_spend_turn()
-	return true
-
-
-func wait_turn() -> bool:
-	if not run_active or phase != Phase.DUNGEON:
-		return false
-	_log("You wait, potato-still.")
-	_spend_turn()
-	return true
-
-
-func use_stairs() -> bool:
-	if not run_active or phase != Phase.DUNGEON:
-		return false
-	var t: int = int(tiles[player.y][player.x])
-	if t == T.STAIRS_D:
-		_descend()
-		return true
-	if t == T.EXIT and has_notable:
+func tick(dt: float) -> void:
+	if not run_active or phase != Phase.RUN:
+		return
+	dt = minf(dt, 0.05)
+	elapsed += dt
+	if elapsed >= Catalog.STAGE_SECS:
 		_win()
+		return
+	_move_player(dt)
+	_weapons_tick(dt)
+	_spawn_tick(dt)
+	_enemies_tick(dt)
+	_projectiles_tick(dt)
+	_pickups_tick(dt)
+	_contacts()
+	if not surge_started and elapsed >= Catalog.SURGE_AT:
+		_start_surge()
+	player.iframe = maxf(0.0, float(player.iframe) - dt)
+	sfx_fire_cd = maxf(0.0, sfx_fire_cd - dt)
+	if float(player.hp) <= 0.0:
+		_end(false)
+
+
+func _build_stacks() -> void:
+	stacks.clear()
+	var rows := [-520.0, -260.0, 0.0, 260.0, 520.0]
+	var cols := [-620.0, -200.0, 220.0, 640.0]
+	for y in rows:
+		for x in cols:
+			if absf(x) < 80.0 and absf(y) < 80.0:
+				continue
+			stacks.append(Rect2(x, y, 210.0, 40.0))
+
+
+func _blocked(pos: Vector2, radius: float) -> bool:
+	var lim := Catalog.ARENA * 0.5 - 8.0
+	if absf(pos.x) > lim or absf(pos.y) > lim:
 		return true
-	_log("No stair, no exit. Just floor.")
+	for r in stacks:
+		if (r as Rect2).grow(radius - 2.0).has_point(pos):
+			return true
 	return false
 
 
-func _descend() -> void:
-	if depth >= Catalog.DEPTHS:
-		_log("This slice of the stacks ends here. Recover the Notable Folio and leave.")
+func _slide(from: Vector2, delta: Vector2, radius: float) -> Vector2:
+	var nx := from + Vector2(delta.x, 0.0)
+	if _blocked(nx, radius):
+		nx.x = from.x
+	var ny := Vector2(nx.x, from.y) + Vector2(0.0, delta.y)
+	if _blocked(ny, radius):
+		ny.y = from.y
+	return ny
+
+
+func _move_player(dt: float) -> void:
+	var v := smoke_move
+	if v == Vector2.ZERO:
+		v = Input.get_vector("move_w", "move_e", "move_n", "move_s")
+	if v.length() > 1.0:
+		v = v.normalized()
+	var spd: float = float(player.speed)
+	player.pos = _slide(player.pos, v * spd * dt, float(player.radius))
+	if v.length() > 0.15:
+		player.facing = v.normalized()
+
+
+func _magnet() -> float:
+	var m := 18.0
+	for p in passives:
+		if str(p.pattern) == "bookmark":
+			m += 70.0 * int(p.level)
+	return m
+
+
+func _armor() -> float:
+	var a := 0.0
+	for p in passives:
+		if str(p.pattern) == "clasps":
+			a += 0.08 * int(p.level)
+	return minf(0.5, a)
+
+
+func _add_weapon(item: Dictionary) -> void:
+	var pattern := str(item.get("pattern", "notes"))
+	for w in weapons:
+		if str(w.pattern) == pattern:
+			w.level = mini(8, int(w.level) + 1)
+			w.name = str(item.get("name", w.name))
+			last_slam = str(w.name)
+			_log("%s slams onto the shelf." % w.name)
+			return
+	if weapons.size() >= Catalog.MAX_WEAPONS:
+		pages += 2
+		_log("Six tomes already. The folio becomes pages.")
 		return
-	AudioMgr.play("stairs")
-	depth += 1
-	# v0.1: Returns Desk between floors 2→3 and 4→5 only. Buys unidentified; sells nothing.
-	between_desk = (depth == 3 or depth == 5)
-	if between_desk:
-		_log("Between chapters: a Returns Desk. They take unidentified folios for pages. Nothing is for sale.")
-		_open_returns()
+	var d := Catalog.def_by_pattern(pattern)
+	weapons.append({
+		"pattern": pattern,
+		"name": str(item.get("name", d.get("name", "Tome"))),
+		"level": 1,
+		"cd": 0.12,
+		"cd_max": float(item.get("cd", d.get("cd", 0.8))),
+		"atk": int(item.get("atk", d.get("atk", 8))),
+		"angle": rng.randf() * TAU,
+	})
+	last_slam = str(item.get("name", "a tome"))
+	_log("%s slams onto the shelf. It fires itself." % last_slam)
+
+
+func _add_passive(item: Dictionary) -> void:
+	var pattern := str(item.get("pattern", "bookmark"))
+	for p in passives:
+		if str(p.pattern) == pattern:
+			p.level = mini(5, int(p.level) + 1)
+			_apply_passive_hp(pattern)
+			last_slam = str(p.name)
+			_log("%s, thicker." % p.name)
+			return
+	if passives.size() >= Catalog.MAX_PASSIVES:
+		pages += 2
+		_log("No more courtesies. Pages instead.")
+		return
+	passives.append({
+		"pattern": pattern,
+		"name": str(item.get("name", "Courtesy")),
+		"level": 1,
+		"effect": str(item.get("effect", "")),
+	})
+	_apply_passive_hp(pattern)
+	last_slam = str(item.get("name", "a courtesy"))
+	_log("%s slams onto the shelf." % last_slam)
+
+
+func _apply_passive_hp(pattern: String) -> void:
+	if pattern == "cloth":
+		player.hp_max = float(player.hp_max) + 18.0
+		player.hp = minf(float(player.hp_max), float(player.hp) + 18.0)
+
+
+func _apply_item(item: Dictionary, curse_hp: int = 0) -> void:
+	var kind := str(item.get("kind", ""))
+	match kind:
+		"tome":
+			_add_weapon(item)
+			_note_find(str(item.name), int(item.get("value_gold", 8)))
+		"passive":
+			_add_passive(item)
+			_note_find(str(item.name), 6)
+		"curse":
+			var hurt := maxi(curse_hp, 8)
+			player.hp = maxf(1.0, float(player.hp) - float(hurt))
+			_note_misfile(str(item.name), hurt)
+			_log("A misfile. The page hurts.")
+		_:
+			pages += 1
+
+
+func _weapons_tick(dt: float) -> void:
+	for w in weapons:
+		var lv := int(w.level)
+		var cd_max: float = maxf(0.18, float(w.cd_max) / (1.0 + 0.07 * float(lv - 1)))
+		match str(w.pattern):
+			"atlas":
+				_atlas_tick(w, dt)
+			_:
+				w.cd = float(w.cd) - dt
+				if float(w.cd) <= 0.0:
+					w.cd = cd_max
+					_fire_pattern(w, lv)
+
+
+func _fire_pattern(w: Dictionary, lv: int) -> void:
+	var dmg := float(w.atk) * (1.0 + 0.16 * float(lv - 1))
+	var face: Vector2 = player.facing
+	if face.length() < 0.2:
+		face = Vector2.RIGHT
+	face = face.normalized()
+	_maybe_fire_sfx()
+	match str(w.pattern):
+		"notes":
+			var n := 1 + lv / 3
+			for i in n:
+				var spread := (float(i) - float(n - 1) * 0.5) * 0.14
+				var dir := face.rotated(spread)
+				_proj(player.pos + dir * 16.0, dir * 430.0, dmg, 0.7, 6.0, "notes", 0.0, 0.0, 0)
+		"cookbook":
+			var n2 := 4 + lv / 2
+			var cone := 0.55 + 0.05 * lv
+			for i in n2:
+				var t := (float(i) / float(maxi(1, n2 - 1))) - 0.5
+				var dir2 := face.rotated(t * cone * 2.0)
+				_proj(player.pos + dir2 * 14.0, dir2 * 360.0, dmg, 0.55, 7.0, "cookbook", 0.0, 0.0, 0)
+			if lv >= 4:
+				for k in 8:
+					var dir3 := Vector2.from_angle(TAU * float(k) / 8.0)
+					_proj(player.pos, dir3 * 280.0, dmg * 0.7, 0.45, 8.0, "cookbook", 0.0, 0.0, 0)
+		"dictionary":
+			_pulse(dmg, 48.0 + 10.0 * lv, 0.9 + 0.15 * lv)
+		"hymnal":
+			var n3 := 6 + lv / 2
+			for i in n3:
+				var t := (float(i) / float(maxi(1, n3 - 1))) - 0.5
+				var dir4 := face.rotated(t * 1.4)
+				_proj(player.pos + dir4 * 12.0, dir4 * 320.0, dmg, 0.5, 10.0, "hymnal", 42.0 + 6.0 * lv, 0.0, 1)
+		"ledger":
+			var tgt := _nearest_enemy()
+			var dir5 := face
+			if tgt != null:
+				dir5 = (tgt.pos - player.pos).normalized()
+			_proj(player.pos + dir5 * 14.0, dir5 * 390.0, dmg, 1.1, 6.0, "ledger", 0.0, 0.0, 0, true, 1)
+		_:
+			_proj(player.pos + face * 16.0, face * 400.0, dmg, 0.7, 6.0, "notes", 0.0, 0.0, 0)
+
+
+func _atlas_tick(w: Dictionary, dt: float) -> void:
+	var lv := int(w.level)
+	var n := 2 + lv
+	var rad := 46.0 + 7.0 * float(lv)
+	w.angle = float(w.angle) + dt * (1.7 + 0.12 * float(lv))
+	var dmg := float(w.atk) * (1.0 + 0.14 * float(lv - 1))
+	for i in n:
+		var a: float = float(w.angle) + TAU * float(i) / float(n)
+		var p: Vector2 = player.pos + Vector2.from_angle(a) * rad
+		_hurt_circle(p, 12.0, dmg * dt * 3.2, 18.0, 0.0)
+
+
+func _pulse(dmg: float, r_max: float, slow: float) -> void:
+	projectiles.append({
+		"pos": player.pos, "vel": Vector2.ZERO, "life": 0.35, "dmg": dmg,
+		"radius": 18.0, "r_max": r_max, "kind": "dictionary", "knock": 8.0,
+		"slow": slow, "pierce": 99, "from_player": true, "seek": false,
+		"gold_on_hit": 0, "pulse": true, "hits": {},
+	})
+
+
+func _proj(pos: Vector2, vel: Vector2, dmg: float, life: float, radius: float, kind: String, knock: float, slow: float, pierce: int, seek: bool = false, gold_on_hit: int = 0) -> void:
+	if projectiles.size() > 90:
+		return
+	projectiles.append({
+		"pos": pos, "vel": vel, "life": life, "dmg": dmg, "radius": radius,
+		"kind": kind, "knock": knock, "slow": slow, "pierce": pierce,
+		"from_player": true, "seek": seek, "gold_on_hit": gold_on_hit,
+		"pulse": false, "hits": {},
+	})
+
+
+func _maybe_fire_sfx() -> void:
+	if sfx_fire_cd <= 0.0:
+		AudioMgr.play("page")
+		sfx_fire_cd = 0.16
+
+
+func _spawn_tick(dt: float) -> void:
+	spawn_acc -= dt
+	if spawn_acc > 0.0:
+		return
+	var t := elapsed
+	var interval := clampf(1.1 - t / 200.0, 0.20, 1.1)
+	if surge_started:
+		interval *= 0.45
+	spawn_acc = interval
+	var n := 1 + int(t / 65.0)
+	if surge_started:
+		n += 3
+	n = mini(n, 8)
+	if enemies.size() > 160:
+		n = mini(n, 2)
+	if enemies.size() > 200:
+		return
+	var wave := 1.0 + t / 95.0
+	for _i in n:
+		_spawn_enemy(Catalog.pick_enemy_kind(rng, t), wave)
+
+
+func _spawn_enemy(kind: String, wave: float) -> void:
+	var e: Dictionary = Catalog.enemy_template(kind, wave)
+	e.id = next_id
+	next_id += 1
+	e.pos = _ring_pos(400.0, 540.0)
+	var guard := 0
+	while _blocked(e.pos, float(e.radius)) and guard < 8:
+		e.pos = _ring_pos(400.0, 560.0)
+		guard += 1
+	enemies.append(e)
+
+
+func _start_surge() -> void:
+	surge_started = true
+	var wave := 1.0 + elapsed / 95.0
+	_spawn_enemy("overdue", wave)
+	for _i in 6:
+		_spawn_enemy("nymph", wave)
+	_log("Closing time. The brood thickens.")
+	AudioMgr.play("open")
+
+
+func _ring_pos(d0: float, d1: float) -> Vector2:
+	var ang := rng.randf() * TAU
+	var dist := d0 + rng.randf() * (d1 - d0)
+	var p: Vector2 = player.pos + Vector2.from_angle(ang) * dist
+	var lim := Catalog.ARENA * 0.5 - 24.0
+	p.x = clampf(p.x, -lim, lim)
+	p.y = clampf(p.y, -lim, lim)
+	return p
+
+
+func _enemies_tick(dt: float) -> void:
+	var ppos: Vector2 = player.pos
+	for e in enemies:
+		if float(e.hp) <= 0.0:
+			continue
+		e.slow_t = maxf(0.0, float(e.slow_t) - dt)
+		var smult := 0.4 if float(e.slow_t) > 0.0 else 1.0
+		var to_p: Vector2 = ppos - e.pos
+		var dist := to_p.length()
+		var dir := Vector2.RIGHT
+		if dist > 1.0:
+			dir = to_p / dist
+		if str(e.ai) == "errata":
+			var side := Vector2(-dir.y, dir.x)
+			dir = (dir * 0.75 + side * sin(elapsed * 4.0 + float(e.id))).normalized()
+		e.pos = _slide(e.pos, dir * float(e.speed) * smult * dt, float(e.radius))
+
+
+func _projectiles_tick(dt: float) -> void:
+	var keep: Array = []
+	for pr in projectiles:
+		pr.life = float(pr.life) - dt
+		if float(pr.life) <= 0.0:
+			continue
+		if bool(pr.get("pulse", false)):
+			var age := 1.0 - float(pr.life) / 0.35
+			pr.radius = lerpf(18.0, float(pr.get("r_max", 80.0)), clampf(age, 0.0, 1.0))
+			pr.pos = player.pos
+			_hurt_proj(pr)
+			keep.append(pr)
+			continue
+		if bool(pr.seek):
+			var tgt := _nearest_enemy()
+			if tgt != null:
+				pr.vel = pr.vel.lerp((tgt.pos - pr.pos).normalized() * 390.0, 0.12)
+		pr.pos += pr.vel * dt
+		if bool(pr.from_player):
+			_hurt_proj(pr)
+			if int(pr.pierce) >= 0 and float(pr.life) > 0.0:
+				keep.append(pr)
+		else:
+			keep.append(pr)
+	projectiles = keep
+
+
+func _hurt_proj(pr: Dictionary) -> void:
+	var hits: Dictionary = pr.hits
+	for e in enemies:
+		if float(e.hp) <= 0.0:
+			continue
+		var id := int(e.id)
+		if hits.has(id):
+			continue
+		if pr.pos.distance_to(e.pos) <= float(pr.radius) + float(e.radius):
+			hits[id] = true
+			_damage_enemy(e, float(pr.dmg), pr.pos, float(pr.knock), float(pr.slow))
+			if int(pr.gold_on_hit) > 0 and rng.randf() < 0.35:
+				gold += int(pr.gold_on_hit)
+			if int(pr.pierce) <= 0:
+				pr.life = 0.0
+				return
+			pr.pierce = int(pr.pierce) - 1
+
+
+func _hurt_circle(pos: Vector2, radius: float, dmg: float, knock: float, slow: float) -> void:
+	for e in enemies:
+		if float(e.hp) <= 0.0:
+			continue
+		if pos.distance_to(e.pos) <= radius + float(e.radius):
+			_damage_enemy(e, dmg, pos, knock, slow)
+
+
+func _damage_enemy(e: Dictionary, dmg: float, from: Vector2, knock: float, slow: float) -> void:
+	e.hp = float(e.hp) - dmg
+	if knock > 0.0:
+		var d: Vector2 = e.pos - from
+		if d.length() > 0.2:
+			e.pos = _slide(e.pos, d.normalized() * knock * 0.02 * dmg, float(e.radius))
+	if slow > 0.0:
+		e.slow_t = maxf(float(e.slow_t), slow)
+	if float(e.hp) <= 0.0:
+		_kill_enemy(e)
+
+
+func _kill_enemy(e: Dictionary) -> void:
+	kills += 1
+	var pos: Vector2 = e.pos
+	_spawn_pickup(Catalog.Pickup.GEM, pos)
+	if int(e.get("gold", 0)) > 0 or rng.randf() < 0.14:
+		_spawn_pickup(Catalog.Pickup.GOLD, pos + Vector2(8, -4))
+	if rng.randf() < 0.035:
+		_spawn_pickup(Catalog.Pickup.BISCUIT, pos + Vector2(-6, 6))
+	if rng.randf() < 0.018 or (bool(e.get("elite", false)) and rng.randf() < 0.4):
+		_spawn_pickup(Catalog.Pickup.FOLIO, pos + Vector2(0, 10))
+	e.hp = 0.0
+
+
+func _contacts() -> void:
+	var live: Array = []
+	for e in enemies:
+		if float(e.hp) > 0.0:
+			live.append(e)
+	enemies = live
+	if float(player.iframe) > 0.0:
+		return
+	var ppos: Vector2 = player.pos
+	for e2 in enemies:
+		if ppos.distance_to(e2.pos) < float(player.radius) + float(e2.radius) * 0.85:
+			_hurt_player(float(e2.atk) * (1.0 - _armor()), e2.name)
+			return
+
+
+func _hurt_player(dmg: float, src: String) -> void:
+	if float(player.iframe) > 0.0 or not run_active:
+		return
+	player.hp = float(player.hp) - dmg
+	player.iframe = 0.42
+	AudioMgr.play("hit")
+	if float(player.hp) <= 0.0:
+		cause = src
+		player.hp = 0.0
+
+
+func _pickups_tick(dt: float) -> void:
+	var mag := _magnet()
+	var keep: Array = []
+	for it in pickups:
+		var d: Vector2 = player.pos - it.pos
+		var dist := d.length()
+		var kind := int(it.kind)
+		var pull := mag if kind != Catalog.Pickup.FOLIO else 0.0
+		if pull > 0.0 and dist < pull:
+			it.pos += d.normalized() * 260.0 * dt
+			dist = it.pos.distance_to(player.pos)
+		if dist < float(player.radius) + 12.0:
+			_take_pickup(it)
+		else:
+			keep.append(it)
+	pickups = keep
+
+
+func _spawn_pickup(kind: int, pos: Vector2) -> void:
+	if pickups.size() > 120:
+		return
+	pickups.append({"kind": kind, "pos": pos, "folio": {}})
+
+
+func _place_reserved_folios() -> void:
+	var reserved: Array = Persist.take_next_folios()
+	var i := 0
+	for raw in reserved:
+		var folio: Dictionary = Catalog.unidentified(rng, str(raw.get("shelf", "")))
+		if str(raw.get("quality", "")) != "":
+			folio.quality = str(raw.quality)
+			folio.tell = str(raw.get("tell", folio.tell))
+		var ang := 0.8 + float(i) * 1.2
+		pickups.append({
+			"kind": Catalog.Pickup.FOLIO,
+			"pos": Vector2.from_angle(ang) * 70.0,
+			"folio": folio,
+		})
+		i += 1
+
+
+func _take_pickup(it: Dictionary) -> void:
+	match int(it.kind):
+		Catalog.Pickup.GEM:
+			_grant_xp(1)
+			AudioMgr.play("pickup")
+		Catalog.Pickup.GOLD:
+			gold += 1
+			AudioMgr.play("pickup")
+		Catalog.Pickup.BISCUIT:
+			player.hp = minf(float(player.hp_max), float(player.hp) + 22.0)
+			_log("A butter biscuit.")
+			AudioMgr.play("potion")
+		Catalog.Pickup.FOLIO:
+			_offer_folio(it.get("folio", {}))
+
+
+func _offer_folio(preset: Dictionary) -> void:
+	if phase != Phase.RUN:
+		return
+	if preset.is_empty() or str(preset.get("kind", "")) != "unid":
+		pending_folio = Catalog.unidentified(rng, "")
 	else:
-		_make_floor()
-		floor_changed.emit()
-		turn_done.emit()
+		pending_folio = preset
+	phase = Phase.FOLIO
+	AudioMgr.play("open")
+	folio_opened.emit()
 
 
-func continue_from_stack() -> void:
+func _grant_xp(amount: int) -> void:
+	xp += amount
+	while xp >= xp_next:
+		xp -= xp_next
+		player_level += 1
+		xp_next = Catalog.xp_to_next(player_level)
+		pending_levelups += 1
+	if pending_levelups > 0 and phase == Phase.RUN:
+		_open_levelup()
+
+
+func _open_levelup() -> void:
 	if not run_active:
 		return
-	phase = Phase.DUNGEON
-	if between_desk:
-		between_desk = false
-		catalogue_slips.clear()
-		catalogue_shelf = ""
-		_make_floor()
-		floor_changed.emit()
-	stack_closed.emit()
-	turn_done.emit()
+	phase = Phase.LEVELUP
+	catalogue_slips = CatalogueDraw.draw_levelup(rng)
+	AudioMgr.play("identify")
+	levelup_opened.emit()
 
 
-func _open_returns() -> void:
-	between_desk = true
-	phase = Phase.STACK
-	catalogue_slips.clear()
-	catalogue_shelf = ""
-	AudioMgr.play("page")
-	stack_opened.emit()
-
-
-func return_folio(inv_index: int) -> void:
-	## Returns Desk buys unidentified folios for pages. Sells nothing.
-	if phase != Phase.STACK:
-		return
-	if inv_index < 0 or inv_index >= inventory.size():
-		return
-	var it: Dictionary = inventory[inv_index]
-	if str(it.kind) != "unid":
-		_log("They only take unidentified folios.")
-		return
-	var pay := 2
-	match str(it.get("quality", "mixed")):
-		"promising":
-			pay = 3
-		"sour":
-			pay = 1
-	inventory.remove_at(inv_index)
-	pages += pay
-	_log("Returned %s. The desk pays %d pages." % [it.name, pay])
-	AudioMgr.play("page")
-	turn_done.emit()
-
-
-func unid_inv_indices() -> Array:
-	var out: Array = []
-	for i in inventory.size():
-		if str(inventory[i].kind) == "unid":
-			out.append(i)
-	return out
-
-
-func catalogue_choose_shelf(shelf_id: String) -> void:
-	if phase != Phase.STACK:
-		return
-	catalogue_shelf = shelf_id
-	catalogue_slips = CatalogueDraw.draw_three(rng, depth, shelf_id)
-	_log("You take three slips from the %s shelf." % CatalogueDraw.shelf_name(shelf_id))
-	AudioMgr.play("page")
-	turn_done.emit()
-
-
-func catalogue_lock(index: int) -> void:
-	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+func catalogue_toggle_lock(index: int) -> void:
+	if phase != Phase.LEVELUP or index < 0 or index >= catalogue_slips.size():
 		return
 	var slip: Dictionary = catalogue_slips[index]
-	if bool(slip.get("locked", false)):
-		return
-	if pages < 1:
-		_log("No spare pages to lock a slip.")
-		return
-	pages -= 1
-	slip.locked = true
-	catalogue_slips[index] = slip
-	_log("Locked: %s." % slip.title)
-	AudioMgr.play("page")
-	turn_done.emit()
+	slip.locked = not bool(slip.locked)
 
 
-func catalogue_redraw(index: int) -> void:
-	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+func catalogue_reshelve(index: int) -> void:
+	if phase != Phase.LEVELUP or pages < 1:
+		return
+	if index < 0 or index >= catalogue_slips.size():
 		return
 	var slip: Dictionary = catalogue_slips[index]
-	if bool(slip.get("locked", false)):
-		_log("That slip is locked.")
-		return
-	if pages < 1:
-		_log("No spare pages to recatalogue a slip.")
+	if bool(slip.locked):
 		return
 	pages -= 1
-	catalogue_slips[index] = CatalogueDraw.draw_slip(rng, depth, catalogue_shelf)
-	_log("Recatalogued. New slip: %s." % catalogue_slips[index].title)
+	catalogue_slips[index] = CatalogueDraw.draw_slip(rng, str(slip.shelf))
 	AudioMgr.play("page")
-	turn_done.emit()
 
 
 func catalogue_take(index: int) -> void:
-	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+	if phase != Phase.LEVELUP:
+		return
+	if index < 0 or index >= catalogue_slips.size():
 		return
 	var slip: Dictionary = catalogue_slips[index]
-	_apply_slip(slip)
+	var unid: Dictionary = slip.unid
+	var result: Dictionary = Catalog.resolve_unidentified(rng, false, str(unid.quality), false, str(slip.shelf))
+	_apply_item(result.item, int(result.curse_hp))
+	pages += int(result.extra_pages)
+	last_identify = {"name": result.item.get("name", ""), "outcome": "shelve", "kind": "shelve"}
+	pending_levelups = maxi(0, pending_levelups - 1)
 	catalogue_slips.clear()
-	catalogue_shelf = ""
-	turn_done.emit()
-
-
-func _apply_slip(slip: Dictionary) -> void:
-	var net := int(slip.get("value", 0))
-	match str(slip.kind):
-		"gold":
-			gold += int(slip.gold)
-			_log("%s. +%d gold." % [slip.note, int(slip.gold)])
-		"pages":
-			pages += int(slip.pages)
-			_log("%s. +%d pages." % [slip.note, int(slip.pages)])
-		"wax":
-			candle = mini(candle_max, candle + int(slip.wax))
-			_log("%s. Candle +%d." % [slip.note, int(slip.wax)])
-		"misfile":
-			player.hp -= int(slip.curse_hp)
-			if not (slip.item as Dictionary).is_empty():
-				var it: Dictionary = slip.item
-				_stamp_uid(it)
-				if inventory.size() < Catalog.INV_CAP:
-					inventory.append(it)
-			_log("%s (−%d HP)." % [slip.note, int(slip.curse_hp)])
-			AudioMgr.play("curse")
-			_track_chance(net, "Misfile: %s" % slip.title)
-			if player.hp <= 0:
-				cause = "a misfiled slip"
-				_end(false)
-			return
-		"item":
-			var it2: Dictionary = slip.item
-			_stamp_uid(it2)
-			if inventory.size() < Catalog.INV_CAP:
-				inventory.append(it2)
-			else:
-				_drop_at(Vector2i(player.x, player.y), it2)
-				_log("Satchel full. The slip waits on the floor.")
-			_log("%s You take %s." % [slip.note, it2.name])
-			AudioMgr.play("pickup")
-		_:
-			_log(str(slip.note))
-	_track_chance(net, "Catalogue: %s" % slip.title)
-	if net > 0:
-		crack_wins += 1
-
-
-func _track_chance(net: int, desc: String) -> void:
-	if net > int(biggest_win.value):
-		biggest_win = {"desc": desc, "value": net}
-	if net < int(biggest_loss.value):
-		biggest_loss = {"desc": desc, "value": net}
-
-
-func can_blurb(_target: Dictionary) -> bool:
-	return false
-
-
-func place_blurb_bet(_target_id: int, _stake: int) -> bool:
-	return false
-
-
-func adjacent_enemies() -> Array:
-	var out: Array = []
-	for e in entities:
-		if int(e.hp) <= 0:
-			continue
-		if chebyshev(player.x, player.y, e.x, e.y) == 1:
-			out.append(e)
-	return out
-
-
-func _auto_pickup() -> void:
-	var pos := Vector2i(player.x, player.y)
-	if not items_at.has(pos):
-		return
-	var remain: Array = []
-	for it in items_at[pos]:
-		if it.get("kind", "") == "gold_pile":
-			gold += int(it.amount)
-			_log("You pocket %d gold." % int(it.amount))
-			AudioMgr.play("pickup")
-		elif it.get("kind", "") == "pages_pile":
-			pages += int(it.amount)
-			_log("You gather %d pages." % int(it.amount))
-			AudioMgr.play("page")
-		elif it.get("kind", "") == "first":
-			inventory.append(it)
-			has_notable = true
-			_log("The Notable Folio is in your hands. A Binding Exit unseals in the first chamber.")
-			AudioMgr.play("identify")
-			tiles[start_pos.y][start_pos.x] = T.EXIT
-		else:
-			if inventory.size() >= Catalog.INV_CAP:
-				remain.append(it)
-				_log("No room for %s." % it.name)
-			else:
-				inventory.append(it)
-				_log("Picked up %s." % it.name)
-				AudioMgr.play("pickup")
-	if remain.is_empty():
-		items_at.erase(pos)
+	AudioMgr.play("page")
+	if pending_levelups > 0:
+		_open_levelup()
 	else:
-		items_at[pos] = remain
+		phase = Phase.RUN
+		levelup_closed.emit()
 
 
-func drop_item(index: int) -> void:
-	if index < 0 or index >= inventory.size():
+func folio_collate() -> void:
+	_resolve_floor_folio(false)
+
+
+func folio_crack() -> void:
+	_resolve_floor_folio(true)
+
+
+func _resolve_floor_folio(crack: bool) -> void:
+	if phase != Phase.FOLIO or pending_folio.is_empty():
 		return
-	var it: Dictionary = inventory[index]
-	inventory.remove_at(index)
-	_drop_at(Vector2i(player.x, player.y), it)
-	_log("Dropped %s." % it.name)
-	if phase == Phase.DUNGEON:
-		_spend_turn()
-	else:
-		turn_done.emit()
-
-
-func equip_item(index: int) -> void:
-	if index < 0 or index >= inventory.size():
-		return
-	var it: Dictionary = inventory[index]
-	if not bool(it.get("identified", true)):
-		_log("Unidentified. Read it before you trust it against your skin.")
-		return
-	if it.kind == "tome":
-		inventory.remove_at(index)
-		if not equipped_tome.is_empty():
-			inventory.append(equipped_tome)
-		equipped_tome = it
-		_log("You ready %s." % it.name)
-		if bool(it.cursed):
-			_log("The folio nips your hands. Cursed.")
-			AudioMgr.play("curse")
-		if phase == Phase.DUNGEON:
-			_spend_turn()
-		else:
-			turn_done.emit()
-	elif it.kind == "binding":
-		inventory.remove_at(index)
-		if not equipped_binding.is_empty():
-			inventory.append(equipped_binding)
-		equipped_binding = it
-		_log("You shrug into %s." % it.name)
-		if phase == Phase.DUNGEON:
-			_spend_turn()
-		else:
-			turn_done.emit()
-	else:
-		_log("That does not equip.")
-
-
-func use_item(index: int) -> void:
-	if index < 0 or index >= inventory.size():
-		return
-	var it: Dictionary = inventory[index]
-	match str(it.kind):
-		"potion":
-			player.hp = mini(int(player.hp_max), int(player.hp) + int(it.get("heal", 0)))
-			candle = mini(candle_max, candle + int(it.get("wax", it.get("food", 0))))
-			_log("You drink %s." % it.name)
-			inventory.remove_at(index)
-			AudioMgr.play("potion")
-			if phase == Phase.DUNGEON:
-				_spend_turn()
-			else:
-				turn_done.emit()
-		"scroll":
-			inventory.remove_at(index)
-			_do_scroll(str(it.effect), it.name)
-		"unid":
-			_log("Choose Collate (safe) or Crack the spine (risk).")
-		"first":
-			_log("It is already doing the only job this slice requires.")
-		"tome", "binding":
-			equip_item(index)
-		_:
-			_log("Nothing happens.")
-
-
-func _do_scroll(effect: String, item_name: String) -> void:
-	_log("You intone %s." % item_name)
-	AudioMgr.play("identify")
-	match effect:
-		"map":
-			for y in H:
-				for x in W:
-					if Catalog.tile_walkable(tiles[y][x]) or tiles[y][x] == T.DOOR_C or tiles[y][x] == T.DESK or tiles[y][x] == T.SHELF:
-						explored[y][x] = true
-			_log("The margins fill with a floorplan.")
-		"sparks":
-			var hits := 0
-			for e in entities:
-				if int(e.hp) <= 0:
-					continue
-				if chebyshev(player.x, player.y, e.x, e.y) <= 1:
-					e.hp -= 6 + depth
-					hits += 1
-					if int(e.hp) <= 0:
-						_kill(e, "errata of sparks")
-			_log("Sparks lick the adjacent tiles (%d caught)." % hits)
-			AudioMgr.play("boom")
-		"recall":
-			player.x = start_pos.x
-			player.y = start_pos.y
-			_log("The frontispiece yanks you to the first chamber.")
-		_:
-			_log("The errata fizzles.")
-	if phase == Phase.DUNGEON:
-		_spend_turn()
-	else:
-		turn_done.emit()
-
-
-func carefully_read(index: int) -> void:
-	collate(index)
-
-
-func gamble_read(index: int) -> void:
-	crack_spine(index)
-
-
-func collate(index: int) -> void:
-	if index < 0 or index >= inventory.size():
-		return
-	var it: Dictionary = inventory[index]
-	if str(it.kind) != "unid":
-		_log("Already known.")
-		return
-	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, false, str(it.get("quality", "mixed")), false)
-	var neu: Dictionary = res.item
-	_stamp_uid(neu)
-	inventory[index] = neu
-	candle = maxi(0, candle - 2)
-	last_identify = {"kind": "collate", "name": neu.name, "tell": it.get("tell", ""), "outcome": "identified"}
-	_log("Collated. The tell was right enough: it is %s." % neu.name)
-	AudioMgr.play("identify")
-	if phase == Phase.DUNGEON:
-		_spend_turn()
-	else:
-		turn_done.emit()
-
-
-func crack_spine(index: int) -> void:
-	if index < 0 or index >= inventory.size():
-		return
-	var it: Dictionary = inventory[index]
-	if str(it.kind) != "unid":
-		_log("Already known.")
-		return
-	cracks += 1
-	var block := curse_streak >= Catalog.PITY_CURSES
-	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, true, str(it.get("quality", "mixed")), block)
-	var neu: Dictionary = res.item
-	_stamp_uid(neu)
-	inventory[index] = neu
-	pages += int(res.extra_pages)
-	if pages < 0:
-		pages = 0
-	var outcome := str(res.outcome)
-	last_identify = {"kind": "crack", "name": neu.name, "tell": it.get("tell", ""), "outcome": outcome, "pity": block}
-	match outcome:
-		"flare":
-			crack_wins += 1
-			curse_streak = 0
-			_log("The spine gives. %s. Nearby ink flares." % neu.name)
-			AudioMgr.play("boom")
-			for e in entities:
-				if int(e.hp) <= 0:
-					continue
-				if chebyshev(player.x, player.y, e.x, e.y) <= 2:
-					e.hp -= 4 + depth
-					if int(e.hp) <= 0:
-						_kill(e, "a cracked spine")
-			_track_chance(12 + int(res.extra_pages) * 4, "Crack flare (%s)" % neu.name)
-		"curse":
+	if crack:
+		cracks += 1
+	var block := crack and curse_streak >= Catalog.PITY_CURSES
+	var result: Dictionary = Catalog.resolve_unidentified(
+		rng, crack, str(pending_folio.get("quality", "mixed")), block, str(pending_folio.get("shelf", ""))
+	)
+	last_identify = {"name": result.item.get("name", ""), "outcome": str(result.outcome), "kind": "crack" if crack else "collate"}
+	pages += int(result.extra_pages)
+	if str(result.outcome) == "curse":
+		if crack:
 			curse_streak += 1
-			player.hp -= int(res.curse_hp)
-			_log("Misfile. %s. Glue-smoke (−%d HP). Pity %d/%d." % [neu.name, int(res.curse_hp), curse_streak, Catalog.PITY_CURSES])
-			AudioMgr.play("curse")
-			_track_chance(-8 - int(res.curse_hp), "Crack misfile")
-			if player.hp <= 0:
-				cause = "a folio that objected to a cracked spine"
-				_end(false)
-				return
-		_:
+		_apply_item(result.item, int(result.curse_hp))
+		AudioMgr.play("curse")
+		if crack and block:
+			_log(Catalog.librarian_pity_line(Catalog.PITY_CURSES))
+	else:
+		if crack:
 			curse_streak = 0
-			var pity_note := " Pity held: no third misfile in a row." if block else ""
-			_log("The spine was honest: %s.%s" % [neu.name, pity_note])
+			if str(result.outcome) == "strong":
+				crack_strong += 1
+				AudioMgr.play("boom")
+			else:
+				AudioMgr.play("identify")
+		else:
 			AudioMgr.play("identify")
-			_track_chance(1, "Crack even (%s)" % neu.name)
-	if phase == Phase.DUNGEON:
-		_spend_turn()
-	else:
-		turn_done.emit()
+		_apply_item(result.item, 0)
+		if crack:
+			_log("The spine gives. The page reads: %s." % result.item.get("name", "an edition"))
+		else:
+			_log("Collated. The page reads: %s." % result.item.get("name", "an edition"))
+	pending_folio = {}
+	phase = Phase.RUN
+	folio_closed.emit()
 
 
-func _player_hit(foe: Dictionary) -> void:
-	if miss_turns > 0:
-		miss_turns -= 1
-		_log("Errata dust: you miss %s." % foe.name)
-		AudioMgr.play("miss")
-		return
-	var atk := player_atk()
-	var defn := int(foe.def)
-	var chance := clampf(0.72 + float(atk - defn) * 0.05, 0.2, 0.95)
-	if rng.randf() > chance:
-		_log("You swing %s at %s and miss." % [equipped_tome.get("name", "your notes"), foe.name])
-		AudioMgr.play("miss")
-		return
-	var dmg := maxi(1, atk - defn + rng.randi_range(0, 2))
-	var effect := str(equipped_tome.get("effect", "none"))
-	if effect == "fire" and rng.randf() < 0.45:
-		var extra := rng.randi_range(1, 3)
-		dmg += extra
-		_log("The cookbook spat grease-fire (+%d)." % extra)
-	foe.hp -= dmg
-	_log("You hit %s for %d." % [foe.name, dmg])
-	AudioMgr.play("hit")
-	if effect == "slow" and rng.randf() < 0.45:
-		foe.skip = int(foe.get("skip", 0)) + 1
-		_log("Defined: %s is delayed." % foe.name)
-	if effect == "knock" and rng.randf() < 0.5:
-		_knock(foe)
-	if effect == "confuse" and rng.randf() < 0.4:
-		foe.confuse = int(foe.get("confuse", 0)) + 2
-		_log("%s loses the plot." % foe.name)
-	if effect == "gold" and rng.randf() < 0.35:
-		gold += 1
-		_log("The ledger invoices %s for 1 gold." % foe.name)
-	if int(foe.hp) <= 0:
-		_kill(foe, equipped_tome.get("name", "your notes"))
-
-
-func _knock(foe: Dictionary) -> void:
-	var dx := signi(int(foe.x) - int(player.x))
-	var dy := signi(int(foe.y) - int(player.y))
-	var nx: int = foe.x + dx
-	var ny: int = foe.y + dy
-	if is_walkable(nx, ny) and entity_at(nx, ny).is_empty():
-		foe.x = nx
-		foe.y = ny
-		_log("%s is shoved." % foe.name)
-
-
-func _kill(foe: Dictionary, by: String) -> void:
-	kills += 1
-	gold += int(foe.get("xp_gold", 2))
-	_log("%s dies (%s). You take %d gold." % [foe.name, by, int(foe.get("xp_gold", 2))])
-	if rng.randf() < 0.22:
-		_drop_at(Vector2i(foe.x, foe.y), Catalog.unidentified(rng))
-		_stamp_uid(_top_item(Vector2i(foe.x, foe.y)))
-	elif rng.randf() < 0.18:
-		_drop_at(Vector2i(foe.x, foe.y), {"kind": "pages_pile", "name": "Loose Pages", "amount": rng.randi_range(1, 2), "sprite": 15})
-	entities.erase(foe)
-
-
-func _spend_turn() -> void:
-	if not run_active:
-		return
-	turn += 1
-	_tick_candle()
-	_recompute_fov()
-	if not run_active:
-		return
-	_enemies_act()
-	_recompute_fov()
-	if run_active and int(player.hp) <= 0:
-		if cause == "":
-			cause = "unspecified scholarly injury"
-		_end(false)
-		return
-	look_name = _look_tile(player.x, player.y)
-	turn_done.emit()
-
-
-func _tick_candle() -> void:
-	var every := 3
-	if depth >= 4:
-		every = 2
-	wax_acc += 1
-	if wax_acc >= every:
-		wax_acc = 0
-		candle -= 1
-		if candle == 10:
-			_log("The candle is a stub. Wax pools on the floor.")
-		if candle <= 0:
-			candle = 0
-			player.hp -= 1
-			_log("The candle dies to a nub. You take 1 in the dark.")
-			if int(player.hp) <= 0:
-				cause = "lost the last of the candle"
-				_end(false)
-
-
-func _enemies_act() -> void:
-	# Copy because kills mutate the array.
-	var snap: Array = entities.duplicate()
-	for e in snap:
-		if not run_active:
-			return
-		if not entities.has(e) or int(e.hp) <= 0:
-			continue
-		if int(e.get("skip", 0)) > 0:
-			e.skip = int(e.skip) - 1
-			continue
-		if int(e.get("confuse", 0)) > 0:
-			e.confuse = int(e.confuse) - 1
-			_step_random(e)
-			continue
-		if not _can_see_player(e) and not bool(e.get("seen_player", false)):
-			if str(e.ai) == "thief":
-				continue
-			if rng.randf() < 0.35:
-				_step_random(e)
-			continue
-		e.seen_player = true
-		match str(e.ai):
-			"rush":
-				_step_toward(e)
-			"ranged":
-				_ai_ranged(e)
-			"tank":
-				e.cooldown = int(e.get("cooldown", 0)) + 1
-				if int(e.cooldown) % 2 == 1:
-					_step_toward(e)
-			"thief":
-				_ai_thief(e)
-			"errata":
-				_ai_errata(e)
-			_:
-				_step_toward(e)
-
-
-func _can_see_player(e: Dictionary) -> bool:
-	var d := chebyshev(e.x, e.y, player.x, player.y)
-	if d > Catalog.FOV_R + 1:
+func stamp_next_folio() -> bool:
+	if phase != Phase.RECAP:
 		return false
-	return _los(e.x, e.y, player.x, player.y)
+	return Persist.try_stamp_folio(rng)
 
 
-func _los(x0: int, y0: int, x1: int, y1: int) -> bool:
-	var dx := absi(x1 - x0)
-	var dy := -absi(y1 - y0)
-	var sx := 1 if x0 < x1 else -1
-	var sy := 1 if y0 < y1 else -1
-	var err := dx + dy
-	var x := x0
-	var y := y0
-	while true:
-		if x == x1 and y == y1:
-			return true
-		if not (x == x0 and y == y0):
-			if not in_bounds(x, y):
-				return false
-			if not Catalog.tile_transparent(tiles[y][x]):
-				return false
-		var e2 := 2 * err
-		if e2 >= dy:
-			err += dy
-			x += sx
-		if e2 <= dx:
-			err += dx
-			y += sy
-	return false
-
-
-func _ai_ranged(e: Dictionary) -> void:
-	var d := chebyshev(e.x, e.y, player.x, player.y)
-	if d == 1:
-		_monster_hit(e)
-		return
-	if d >= int(e.range_min) and d <= int(e.range_max) and _los(e.x, e.y, player.x, player.y):
-		if rng.randf() < 0.72:
-			var dmg := maxi(1, int(e.atk) - player_def())
-			player.hp -= dmg
-			_log("%s spat ink for %d." % [e.name, dmg])
-			AudioMgr.play("hit")
-			if int(player.hp) <= 0:
-				cause = "inked to death by an Inkblot"
-		else:
-			_log("%s spat ink and missed." % e.name)
-			AudioMgr.play("miss")
-		return
-	if d < int(e.range_min):
-		_step_away(e)
-	else:
-		_step_toward(e)
-
-
-func _ai_thief(e: Dictionary) -> void:
-	var d := chebyshev(e.x, e.y, player.x, player.y)
-	if float(e.hp) / float(e.hp_max) < 0.4:
-		_step_away(e)
-		return
-	if d == 1:
-		if rng.randf() < 0.55 and (gold > 0 or pages > 0):
-			if gold >= 3 and rng.randf() < 0.6:
-				var steal := mini(gold, rng.randi_range(2, 6))
-				gold -= steal
-				_log("%s lifts %d gold and slips toward the stacks." % [e.name, steal])
-			elif pages > 0:
-				pages -= 1
-				_log("%s steals a page.")
-			AudioMgr.play("page")
-			_step_away(e)
-		else:
-			_monster_hit(e)
-		return
-	_step_toward(e)
-
-
-func _ai_errata(e: Dictionary) -> void:
-	var d := chebyshev(e.x, e.y, player.x, player.y)
-	if d == 1:
-		if rng.randf() < 0.5:
-			miss_turns = maxi(miss_turns, 3)
-			_log("%s dusts you with errata. Your next swings may miss." % e.name)
-			AudioMgr.play("curse")
-		else:
-			_monster_hit(e)
-		return
-	_step_toward(e)
-
-
-func _monster_hit(e: Dictionary) -> void:
-	var chance := clampf(0.65 + float(int(e.atk) - player_def()) * 0.05, 0.2, 0.92)
-	if rng.randf() > chance:
-		_log("%s misses you." % e.name)
-		AudioMgr.play("miss")
-		return
-	var dmg := maxi(1, int(e.atk) - player_def() + rng.randi_range(0, 1))
-	player.hp -= dmg
-	_log("%s hits you for %d." % [e.name, dmg])
-	AudioMgr.play("hit")
-	if int(player.hp) <= 0:
-		cause = "slain by %s" % e.name
-
-
-func _step_toward(e: Dictionary) -> void:
-	var step := _best_step(e, player.x, player.y, false)
-	if step == Vector2i.ZERO:
-		if chebyshev(e.x, e.y, player.x, player.y) == 1:
-			_monster_hit(e)
-		return
-	var nx: int = e.x + step.x
-	var ny: int = e.y + step.y
-	if nx == player.x and ny == player.y:
-		_monster_hit(e)
-		return
-	if is_walkable(nx, ny) and entity_at(nx, ny).is_empty():
-		e.x = nx
-		e.y = ny
-
-
-func _step_away(e: Dictionary) -> void:
-	var step := _best_step(e, player.x, player.y, true)
-	var nx: int = e.x + step.x
-	var ny: int = e.y + step.y
-	if step != Vector2i.ZERO and is_walkable(nx, ny) and entity_at(nx, ny).is_empty():
-		e.x = nx
-		e.y = ny
-	elif chebyshev(e.x, e.y, player.x, player.y) == 1:
-		_monster_hit(e)
-
-
-func _step_random(e: Dictionary) -> void:
-	var dirs := _dirs()
-	dirs.shuffle()
-	for d in dirs:
-		var nx: int = e.x + d.x
-		var ny: int = e.y + d.y
-		if is_walkable(nx, ny) and entity_at(nx, ny).is_empty():
-			e.x = nx
-			e.y = ny
-			return
-
-
-func _best_step(e: Dictionary, tx: int, ty: int, away: bool) -> Vector2i:
-	var best := Vector2i.ZERO
-	var best_score := -9999 if away else 9999
-	for d in _dirs():
-		var nx: int = e.x + d.x
-		var ny: int = e.y + d.y
-		if nx == player.x and ny == player.y and not away:
-			return d
-		if not is_walkable(nx, ny):
+func _nearest_enemy() -> Variant:
+	var best: Variant = null
+	var bd := 1e12
+	var ppos: Vector2 = player.pos
+	for e in enemies:
+		if float(e.hp) <= 0.0:
 			continue
-		if not entity_at(nx, ny).is_empty():
-			continue
-		var score := chebyshev(nx, ny, tx, ty)
-		if away:
-			if score > best_score:
-				best_score = score
-				best = d
-		else:
-			if score < best_score:
-				best_score = score
-				best = d
+		var d: float = ppos.distance_squared_to(e.pos)
+		if d < bd:
+			bd = d
+			best = e
 	return best
 
 
-func _dirs() -> Array:
-	return [
-		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
-		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
+func _note_find(desc: String, value: int) -> void:
+	if value >= int(biggest_find.get("value", 0)):
+		biggest_find = {"desc": desc, "value": value}
+
+
+func _note_misfile(desc: String, value: int) -> void:
+	if value >= int(worst_misfile.get("value", 0)):
+		worst_misfile = {"desc": desc, "value": value}
+
+
+func hud_line() -> String:
+	if player.is_empty():
+		return ""
+	var t := _fmt_time(elapsed)
+	var left := _fmt_time(maxf(0.0, Catalog.STAGE_SECS - elapsed))
+	return "HP %d/%d   Lv %d   %d/%d leaves   Gold %d   Pages %d   %s  (closes in %s)" % [
+		int(player.hp), int(player.hp_max), player_level, xp, xp_next, gold, pages, t, left
 	]
 
 
-static func chebyshev(x0: int, y0: int, x1: int, y1: int) -> int:
-	return maxi(absi(x1 - x0), absi(y1 - y0))
+func tome_line() -> String:
+	var parts: Array[String] = []
+	for w in weapons:
+		parts.append("%s %d" % [w.name, w.level])
+	return "  ·  ".join(parts) if not parts.is_empty() else "Margin Notes"
 
 
-func _look_tile(x: int, y: int) -> String:
-	if not in_bounds(x, y):
-		return ""
-	if not explored[y][x]:
-		return "darkness"
-	var e := entity_at(x, y)
-	if not e.is_empty() and not e.get("is_player", false) and visible[y][x]:
-		return e.name
-	if items_at.has(Vector2i(x, y)) and (items_at[Vector2i(x, y)] as Array).size() > 0:
-		return str((items_at[Vector2i(x, y)] as Array)[0].name)
-	match int(tiles[y][x]):
-		T.WALL, T.VOID:
-			return "wall"
-		T.DOOR_C:
-			return "closed door"
-		T.DOOR_O:
-			return "open door"
-		T.STAIRS_D:
-			return "stairs down"
-		T.STAIRS_U:
-			return "stairs up"
-		T.FELT:
-			return "reading-room floor"
-		T.DESK:
-			return "returns counter"
-		T.EXIT:
-			return "Binding Exit"
-		T.SHELF:
-			return "bookshelf"
-		_:
-			return "stone floor"
+func last_messages(n: int) -> Array:
+	if messages.size() <= n:
+		return messages.duplicate()
+	return messages.slice(messages.size() - n)
 
 
-func tile_seen(x: int, y: int) -> bool:
-	if not in_bounds(x, y):
-		return false
-	return bool(explored[y][x])
+func recap() -> Dictionary:
+	return {
+		"outcome": "closed the hour" if won else "overdue",
+		"cause": cause,
+		"time": _fmt_time(elapsed),
+		"elapsed": elapsed,
+		"kills": kills,
+		"gold": gold,
+		"pages": pages,
+		"level": player_level,
+		"tomes": tome_line(),
+		"cracks": cracks,
+		"crack_strong": crack_strong,
+		"biggest_find": biggest_find.get("desc", "none"),
+		"worst_misfile": worst_misfile.get("desc", "none"),
+		"when": Time.get_datetime_string_from_system(true, true),
+	}
 
 
-func tile_vis(x: int, y: int) -> bool:
-	if not in_bounds(x, y):
-		return false
-	return bool(visible[y][x])
+func _fmt_time(secs: float) -> String:
+	var s := int(secs)
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+func _log(msg: String) -> void:
+	messages.append(msg)
+	if messages.size() > 40:
+		messages = messages.slice(messages.size() - 40)
 
 
 func _win() -> void:
+	if not run_active:
+		return
 	won = true
-	cause = "returned the Notable Folio"
+	cause = "the hour closed; you still stood"
 	AudioMgr.play("win")
-	_log("You step through the Binding Exit with the Notable Folio. The true First Edition can wait.")
 	_end(true)
 
 
@@ -1169,56 +828,27 @@ func _end(victory: bool) -> void:
 		return
 	run_active = false
 	won = victory
-	phase = Phase.RECAP
 	if not victory:
 		AudioMgr.play("death")
 		if cause == "":
-			cause = "died in the stacks"
-	var entry := recap()
-	Persist.add_entry(entry)
-	recap_ready.emit()
+			cause = "the stacks"
+	Persist.bank_pages += pages
+	Persist.save_meta()
+	phase = Phase.RECAP
+	Persist.add_entry(recap())
 	run_ended.emit()
+	recap_ready.emit()
 
 
-func recap() -> Dictionary:
-	return {
-		"when": Time.get_datetime_string_from_system(true, true),
-		"outcome": "escaped" if won else "died",
-		"cause": cause,
-		"depth": depth,
-		"kills": kills,
-		"gold": gold,
-		"pages": pages,
-		"turns": turn,
-		"cracks": cracks,
-		"crack_wins": crack_wins,
-		"biggest_win": "%s (%d)" % [biggest_win.desc, biggest_win.value],
-		"biggest_loss": "%s (%d)" % [biggest_loss.desc, biggest_loss.value],
-		"seed": seed_used,
-	}
+func grant_xp(amount: int) -> void:
+	if phase == Phase.RUN:
+		_grant_xp(amount)
 
 
-func _shuffle(arr: Array) -> void:
-	for i in range(arr.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
-		var tmp = arr[i]
-		arr[i] = arr[j]
-		arr[j] = tmp
+func force_levelup() -> void:
+	pending_levelups += 1
+	_open_levelup()
 
 
-func is_floor_connected() -> bool:
-	if tiles.is_empty() or player.is_empty():
-		return false
-	return MapGen._reachable(tiles, int(player.x), int(player.y), stairs_pos.x, stairs_pos.y)
-
-
-func log_msg(text: String) -> void:
-	_log(text)
-
-
-func hud_line() -> String:
-	var tome := str(equipped_tome.get("name", "none"))
-	var bind := str(equipped_binding.get("name", "none"))
-	return "HP %d/%d   Depth %d   Gold %d   Pages %d   Candle %d   ATK %d  DEF %d" % [
-		int(player.get("hp", 0)), int(player.get("hp_max", 0)), depth, gold, pages, candle, player_atk(), player_def()
-	] + "\nTome: %s   Binding: %s" % [tome, bind]
+func force_folio() -> void:
+	_offer_folio({})

@@ -2,11 +2,15 @@
 
 Searchable name: **Bookish Potato**. Window title, project name, and menus use **Bookish Potato: The First Edition**.
 
-v0.1 is a short classic **turn-based** dungeon crawler for desktop. Grid, fog of war, permadeath, unidentified editions. The library is flavor. The crawl is the product.
+v0.1 is a short **bullet-heaven / survivor-like** for desktop: one library floor, WASD, tomes that auto-fire, a timed horde of booklice. The library is the stage. The potato is the protagonist, not the marketing gag. This is not a deckbuilder and not a dungeon crawler.
 
-**This game does not contain any real-world currency gambling or microtransactions.** There is no real-money purchase of gold, pages, or draws, no item trading, no marketplace, and no cash-out.
+**This game does not contain any real-world currency gambling or microtransactions.** There is no real-money purchase of gold, pages, or folios, no item trading, no marketplace, and no cash-out.
 
-Suggested future Steam tags: Roguelike, Traditional Roguelike, Turn-Based, Dungeon Crawler.
+Suggested Steam tags: **Bullet Heaven**, **Action Roguelike**, **Roguelite**, **Survival**, **2D**. Do not lead with Bullet Hell. Do not tag Gambling, Casino, Cute, or Meme.
+
+Price intent (not a store listing): **$5.99 / £4.99**.
+
+Before a public Steam store page: complete the IARC/Steam content survey (Germany hides unrated store pages as of 15 Nov 2024).
 
 ## How to run (Godot editor)
 
@@ -44,47 +48,33 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/Booki
 
 Primary target is **Windows**. Desktop only, not HTML5. Do not commit binaries.
 
-Before a public Steam store page: complete the IARC/Steam content survey (Germany hides unrated store pages as of 15 Nov 2024).
-
 ## Controls
 
 | Action | Keys |
 | --- | --- |
-| Move | WASD, arrows, numpad (diagonals 1/3/7/9). Q/E/Z/C also diagonal |
-| Wait | `.` or numpad 5 or `X` |
-| Inventory | `I` — Equip `E`, Use `U`, Drop `D`, Collate `R`, Crack spine `G` |
-| Stairs / exit | Bump the tile, or `,` |
+| Move | WASD or arrows (facing follows movement) |
+| Fire | Automatic — equipped tomes |
+| Level-up | Click a folio card, or `1` / `2` / `3` |
+| Floor folio | **Collate** (safe) or **Crack** (swingy) |
 | Pause | `Esc` |
-| Mouse | Optional: click a tile to step toward it |
 
-Settings (fullscreen, volumes, key hints) live in `user://settings.cfg`. Graveyard: `user://graveyard.json`.
+Settings live in `user://settings.cfg`. Graveyard: `user://graveyard.json`. Banked pages and next-run folios: `user://meta.cfg`.
 
 ## How to play (v0.1)
 
-- **Five floors.** Recover the **Notable Folio** on the last floor, then walk the **Binding Exit** in the first chamber. The full First Edition descent is later.
-- **Permadeath.** No mid-run save.
-- **FOV / fog of war.** Unseen is black; explored is dim memory.
-- **Candle** (anti-stall). Floor 1 is lenient. A dead wick deals damage.
-- **Gold** and **pages**. Pages are earned in-run only (loot, returns, catalogue slips).
-
-### Unidentified editions
-
-Unread books show a **librarian's tell** (learnable: tight stitching vs vinegar glue).
-
-- **Collate** — safe identify. Costs a turn and candle.
-- **Crack the spine** — instant, always a choice. Strong edition (nearby flare) or misfile. **Pity:** you will not take three misfiles in a row from cracking.
-
-### Catalogue (not a machine)
-
-Between some floors, a **Returns Desk** buys unidentified folios for pages and sells nothing.
-
-There you may also **catalogue a shelf you choose**. Three slips are laid out. Spend pages to **lock** a slip or **recatalogue** an unlocked one, then take one. No reels. Nothing spins.
+- **One floor.** Shelves are lanes and cover. Survive the hour (~12 minutes). Closing time is a brood surge.
+- **Permadeath of the run.** No mid-run save.
+- **Level-up** pauses the world. Three unidentified folio cards. One click slams a tome onto the shelf. **Shelve** / **stamp** are toggles on the card, not a filing minigame.
+- **Floor folios:** Collate or Crack. The book opens (cover, crack, page flutter). Collate is always available.
+- **Returns Desk** is after the run only. Pages buy unidentified folios for the **next** run. Sells nothing. No wave shop.
+- **Six tomes** on the lectern at most. Ten folio identities in the whole slice.
+- **Gold** and **pages** are in-run. Pages bank between runs only to stamp next-run folios.
 
 ## Steamworks later
 
 Nothing Steam-specific is implemented. `SteamGate` (`scripts/autoload/steam_gate.gd`) no-ops while `APP_ID` is 0.
 
-Still to do: Steamworks partner account, $100 Steam Direct fee, App ID, GodotSteam overlay/achievements, depots, store capsules/screenshots/trailer. Cloud only for graveyard/settings — never a mid-run save.
+Still to do: Steamworks partner account, $100 Steam Direct fee, App ID, GodotSteam overlay/achievements, depots, store capsules/screenshots/trailer. Cloud only for graveyard/settings/meta — never a mid-run save.
 
 ## License
 

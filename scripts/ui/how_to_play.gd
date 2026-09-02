@@ -1,59 +1,41 @@
 extends Control
 
 const TEXT := """BOOKISH POTATO: THE FIRST EDITION
-v0.1 slice. A classic turn-based dungeon crawler. You are a potato who reads. The library is flavor. The crawl is the game.
+v0.1. Real-time survival in one library floor. You are a potato who reads. The stacks are the stage. Tomes fire themselves.
 
 This game does not contain any real-world currency gambling or microtransactions.
 
-GOAL (this slice)
-Five floors. On the last, recover the Notable Folio. A Binding Exit unseals in that floor's first chamber. Walk into it. The true First Edition run is later.
+THE HOUR
+Survive about twelve minutes. Booklice thicken as the clock runs. Closing time is a brood surge. Death ends the run. There is no mid-run save.
 
-PERMDEATH
-Death ends the run. No mid-run save. Recap (depth, kills, gold, pages, cause, biggest catalogue win / worst misfile) goes to a local graveyard.
+MOVE AND FIRE
+WASD or arrows. Facing follows movement. Equipped tomes auto-fire. No dodge-roll. No manual aim.
 
-THE DUNGEON
-Procedural rooms, corridors, doors, stairs. Unseen tiles are black. Explored tiles stay as dim memory. Lantern FOV is short.
+LEAVES
+Fallen pages are experience. Walk over them. A Silk Bookmark (if you find one) draws them in.
 
-A burning candle is the anti-stall. Floor 1 is lenient. A dead wick hurts. Mash and tea restore wax. Waiting still spends a turn.
+LEVEL-UP
+The world pauses. Three unidentified folio cards. One click shelves a tome. Optional: shelve (keep a card) or stamp (reshelve, 1 page) as icons on the card — not a second screen.
 
-COMBAT
-Bump to attack. Your tome is a weapon; your binding is armor.
-  Bookworm — melee rusher.
-  Inkblot — prefers range.
-  Codex Golem — tank. Moves every other turn.
-  Page Thief — ambush, steals gold or pages, flees wounded.
-  Errata Moth — dusts you so later swings miss.
+FLOOR FOLIOS
+Chests of unread books. Collate (safe, modest) or Crack the spine (swingy). The book opens: cover, crack, page flutter. Collate is always available.
 
-CURRENCIES
-Gold is coin. Pages are an in-run catalogue resource (earned in the dungeon only). Neither can be bought with real money. There is no trading and no cash-out.
+RETURNS DESK
+After the run only. Pages buy unidentified folios for the NEXT run. Sells nothing. No shop between waves.
 
-UNIDENTIFIED FOLIOS (the hook)
-Every book loot is an unknown edition.
-  Collate — safe identify. Costs a turn and a little candle.
-  Crack the spine — instant, your choice. A strong edition may flare, or a misfile may curse.
-A librarian's tell on the unread spine hints quality before you choose (tight stitching vs vinegar glue). Pity: you will not take three misfiles in a row from cracking spines.
-
-RETURNS DESK (between some floors)
-They buy unidentified folios for pages. They sell nothing. A real shop comes later.
-
-CATALOGUE A SHELF
-You choose a shelf (Cookery, Reference, Maps, Accounts, Restricted). Three slips are laid out. Spend pages to lock a slip or recatalogue an unlocked one, then take one. No reels. Nothing spins.
-
-EQUIPPABLE TOMES
-  Charred Cookbook — fire.
-  Pocket Dictionary — defines / slows.
-  Pocket Atlas — knocks foes back.
-  Hymnal of Errata — confuses.
-  Ledger of Debts — coin on hit.
-Bindings are armor.
+TOMES (six on the lectern at most)
+  Margin Notes — paper darts the way you walk.
+  Charred Cookbook — grease-fire cone.
+  Pocket Dictionary — defining pulse, slows.
+  Pocket Atlas — orbiting pages.
+  Hymnal of Errata — wide knockback.
+  Ledger of Debts — seeking entries.
+Courtesies: Silk Bookmark, Cloth Cover, Iron Clasps. Misfile: Cursed Errata.
 
 CONTROLS
-  Move: WASD, arrows, numpad (diagonals 1,3,7,9). Q/E/Z/C also diagonal.
-  Wait: period or numpad 5 or X
-  Inventory: I     Equip E / Use U / Drop D / Collate R / Crack G
-  Stairs: bump, or comma
+  Move: WASD or arrows
+  Level-up: click a card, or 1 / 2 / 3
   Pause: Esc
-  Mouse: optional click to step toward a tile
 """
 
 

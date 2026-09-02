@@ -35,9 +35,9 @@ C = {
     "wood": (92, 58, 36, 255),
     "wood_d": (58, 36, 22, 255),
     "wood_h": (120, 78, 48, 255),
-    "felt": (22, 58, 42, 255),
-    "felt_d": (14, 38, 28, 255),
-    "felt_h": (36, 88, 58, 255),
+    "moss": (22, 58, 42, 255),
+    "moss_d": (14, 38, 28, 255),
+    "moss_h": (36, 88, 58, 255),
     "gold": (212, 160, 24, 255),
     "gold_h": (240, 210, 90, 255),
     "paper": (232, 220, 196, 255),
@@ -180,16 +180,16 @@ def tile_stairs_up() -> Image.Image:
     return im
 
 
-def tile_felt() -> Image.Image:
-    im = new_img(TS, TS, "felt")
+def tile_carpet() -> Image.Image:
+    im = new_img(TS, TS, "moss")
     for x, y in ((1, 1), (8, 4), (4, 10), (13, 12), (10, 7)):
-        px(im, x, y, "felt_d")
-    rect(im, 0, 0, 16, 1, "felt_h")
+        px(im, x, y, "moss_d")
+    rect(im, 0, 0, 16, 1, "moss_h")
     return im
 
 
 def tile_desk() -> Image.Image:
-    im = tile_felt()
+    im = tile_carpet()
     rect(im, 1, 6, 14, 8, "wood_d")
     rect(im, 2, 7, 12, 6, "wood")
     rect(im, 4, 8, 5, 4, "paper")
@@ -296,7 +296,7 @@ def make_tileset() -> Image.Image:
         tile_door_open(),  # 7
         tile_stairs_down(),  # 8
         tile_stairs_up(),  # 9
-        tile_felt(),  # 10
+        tile_carpet(),  # 10
         tile_desk(),  # 11
         tile_exit(),  # 12
         tile_shelf(),  # 13
@@ -396,11 +396,13 @@ def spr_thief() -> Image.Image:
     return im
 
 
-def spr_bookie() -> Image.Image:
-    im = spr_potato()
-    rect(im, 2, 4, 12, 2, "felt_d")  # visor
-    px(im, 4, 5, "gold")
-    px(im, 11, 5, "gold")
+def spr_overdue() -> Image.Image:
+    im = new_img(TS, TS, "trans")
+    rect(im, 3, 2, 10, 12, "paper")
+    rect(im, 4, 3, 8, 10, "paper_d")
+    rect(im, 5, 6, 6, 4, "hp")
+    px(im, 7, 8, "white")
+    px(im, 8, 8, "white")
     return im
 
 
@@ -432,7 +434,7 @@ def make_entities() -> Image.Image:
         spr_inkblot(),
         spr_golem(),
         spr_thief(),
-        spr_bookie(),
+        spr_overdue(),
         spr_errata(),
         spr_tome("hp"),
         spr_tome("blue"),
@@ -586,7 +588,6 @@ def gen_sfx():
         ),
     )
     write_wav(AUD / "page.wav", mix([noise(0.09, vol=0.18), tone(1800, 0.04, wave="tri", vol=0.08)]))
-    write_wav(AUD / "slot.wav", tone(880, 0.04, wave="square", vol=0.18))
     write_wav(
         AUD / "curse.wav",
         mix([tone(155, 0.2, wave="square", vol=0.28), tone(164, 0.2, wave="square", vol=0.22)]),

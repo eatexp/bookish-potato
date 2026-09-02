@@ -4,21 +4,26 @@ var view: Node2D
 var camera: Camera2D
 var hud: CanvasLayer
 var hp_bar: ProgressBar
+var xp_bar: ProgressBar
 var hud_stats: Label
+var tome_lbl: Label
 var log_box: RichTextLabel
 var hint_lbl: Label
-var inv_panel: Panel
-var inv_list: VBoxContainer
-var inv_index := 0
 var pause_panel: Panel
 var settings_panel: Control
-var stack_panel: Panel
-var returns_box: VBoxContainer
-var slips_box: VBoxContainer
+var level_panel: Panel
+var cards_row: HBoxContainer
+var folio_panel: Panel
+var folio_tell: Label
+var folio_pity: Label
+var book_draw: Control
 var recap_panel: Panel
 var recap_body: Label
-var inv_open := false
+var desk_box: VBoxContainer
 var pause_open := false
+var book_open_t := 0.0
+var slam_t := 0.0
+var folio_verb := ""
 
 
 func _ready() -> void:
@@ -27,27 +32,47 @@ func _ready() -> void:
 	AudioMgr.play_music()
 	_build_world()
 	_build_hud()
-	Game.turn_done.connect(_refresh)
-	Game.stack_opened.connect(_on_stack)
-	Game.stack_closed.connect(_on_stack_closed)
+	Game.frame_done.connect(_refresh)
+	Game.levelup_opened.connect(_on_levelup)
+	Game.levelup_closed.connect(_on_levelup_closed)
+	Game.folio_opened.connect(_on_folio)
+	Game.folio_closed.connect(_on_folio_closed)
 	Game.recap_ready.connect(_on_recap)
-	Game.floor_changed.connect(_refresh)
 	if not Game.run_active:
 		Game.new_run()
 	_refresh()
+
+
+func _process(dt: float) -> void:
+	if Game.player.is_empty() or camera == null:
+		return
+	camera.position = Game.player.pos
+	if book_open_t > 0.0:
+		book_open_t = maxf(0.0, book_open_t - dt)
+		if book_draw:
+			book_draw.queue_redraw()
+		if book_open_t <= 0.0 and folio_verb != "":
+			if folio_verb == "collate":
+				Game.folio_collate()
+			else:
+				Game.folio_crack()
+			folio_verb = ""
+	if slam_t > 0.0:
+		slam_t = maxf(0.0, slam_t - dt)
+	if Game.phase == Game.Phase.RUN:
+		_refresh()
 
 
 func _build_world() -> void:
 	var world := Node2D.new()
 	world.name = "World"
 	add_child(world)
-	view = preload("res://scripts/view/dungeon_view.gd").new()
-	view.name = "DungeonView"
+	view = preload("res://scripts/view/arena_view.gd").new()
+	view.name = "ArenaView"
 	world.add_child(view)
 	camera = Camera2D.new()
 	camera.enabled = true
-	camera.zoom = Vector2(1, 1)
-	camera.position_smoothing_enabled = false
+	camera.zoom = Vector2(0.62, 0.62)
 	world.add_child(camera)
 	RenderingServer.set_default_clear_color(Color(0.03, 0.02, 0.02))
 
@@ -62,7 +87,7 @@ func _build_hud() -> void:
 
 	var top := Panel.new()
 	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top.offset_bottom = 72
+	top.offset_bottom = 78
 	root.add_child(top)
 	var topv := VBoxContainer.new()
 	UiKit.fill(topv)
@@ -74,77 +99,44 @@ func _build_hud() -> void:
 	hud_stats = UiKit.lbl("", 15, UiKit.PAPER)
 	topv.add_child(hud_stats)
 	hp_bar = ProgressBar.new()
-	hp_bar.max_value = 24
+	hp_bar.max_value = 100
 	hp_bar.show_percentage = false
 	hp_bar.custom_minimum_size = Vector2(0, 10)
 	topv.add_child(hp_bar)
+	xp_bar = ProgressBar.new()
+	xp_bar.max_value = 10
+	xp_bar.show_percentage = false
+	xp_bar.custom_minimum_size = Vector2(0, 6)
+	topv.add_child(xp_bar)
+	tome_lbl = UiKit.lbl("", 12, UiKit.DIM)
+	topv.add_child(tome_lbl)
 
 	hint_lbl = UiKit.lbl("", 13, UiKit.DIM)
 	hint_lbl.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	hint_lbl.offset_left = -420
-	hint_lbl.offset_top = 76
+	hint_lbl.offset_top = 84
 	hint_lbl.offset_right = -16
-	hint_lbl.offset_bottom = 140
+	hint_lbl.offset_bottom = 130
 	root.add_child(hint_lbl)
 
 	var log_panel := Panel.new()
 	log_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	log_panel.offset_top = -118
+	log_panel.offset_top = -78
 	root.add_child(log_panel)
 	log_box = RichTextLabel.new()
 	UiKit.fill(log_box)
 	log_box.offset_left = 10
 	log_box.offset_right = -10
-	log_box.offset_top = 8
-	log_box.offset_bottom = -8
+	log_box.offset_top = 6
+	log_box.offset_bottom = -6
 	log_box.scroll_following = true
-	log_box.fit_content = false
 	log_box.bbcode_enabled = true
 	log_panel.add_child(log_box)
 
-	_build_inventory(root)
 	_build_pause(root)
-	_build_stack(root)
+	_build_levelup(root)
+	_build_folio(root)
 	_build_recap(root)
-
-
-func _build_inventory(root: Control) -> void:
-	inv_panel = Panel.new()
-	inv_panel.visible = false
-	inv_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	inv_panel.offset_left = -380
-	inv_panel.offset_top = 80
-	inv_panel.offset_bottom = -126
-	root.add_child(inv_panel)
-	var v := VBoxContainer.new()
-	UiKit.fill(v)
-	v.offset_left = 10
-	v.offset_right = -10
-	v.offset_top = 8
-	v.offset_bottom = -8
-	inv_panel.add_child(v)
-	v.add_child(UiKit.lbl("Satchel  (I close)", 18, UiKit.GOLD))
-	v.add_child(UiKit.lbl("↑↓ select   E equip   U use   D drop   R collate   G crack spine", 12, UiKit.DIM))
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(scroll)
-	inv_list = VBoxContainer.new()
-	inv_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(inv_list)
-	var row := HBoxContainer.new()
-	v.add_child(row)
-	for pair in [["Equip", "_inv_equip"], ["Use", "_inv_use"], ["Drop", "_inv_drop"]]:
-		var b := UiKit.btn(pair[0], 90)
-		b.pressed.connect(Callable(self, pair[1]))
-		row.add_child(b)
-	var row2 := HBoxContainer.new()
-	v.add_child(row2)
-	var br := UiKit.btn("Collate (safe)", 160)
-	br.pressed.connect(_inv_read)
-	row2.add_child(br)
-	var bg := UiKit.btn("Crack the spine", 160)
-	bg.pressed.connect(_inv_gamble)
-	row2.add_child(bg)
 
 
 func _build_pause(root: Control) -> void:
@@ -253,136 +245,213 @@ func _vol(label: String, initial: float, cb: Callable) -> Control:
 	return h
 
 
-func _build_stack(root: Control) -> void:
-	stack_panel = Panel.new()
-	stack_panel.visible = false
-	stack_panel.set_anchors_preset(Control.PRESET_CENTER)
-	stack_panel.offset_left = -380
-	stack_panel.offset_top = -280
-	stack_panel.offset_right = 380
-	stack_panel.offset_bottom = 280
-	root.add_child(stack_panel)
+func _build_levelup(root: Control) -> void:
+	level_panel = Panel.new()
+	level_panel.visible = false
+	level_panel.set_anchors_preset(Control.PRESET_CENTER)
+	level_panel.offset_left = -430
+	level_panel.offset_top = -200
+	level_panel.offset_right = 430
+	level_panel.offset_bottom = 200
+	root.add_child(level_panel)
 	var v := VBoxContainer.new()
-	v.name = "DeskV"
 	UiKit.fill(v)
 	v.offset_left = 16
 	v.offset_right = -16
 	v.offset_top = 12
 	v.offset_bottom = -12
 	v.add_theme_constant_override("separation", 8)
-	stack_panel.add_child(v)
-	v.add_child(UiKit.lbl("Returns Desk", 22, UiKit.GOLD))
-	v.add_child(UiKit.lbl("They buy unidentified folios for pages. Nothing is for sale. Catalogue a shelf if you want slips — you choose the shelf, you lock, you recatalogue.", 13, UiKit.DIM))
-	returns_box = VBoxContainer.new()
-	v.add_child(returns_box)
-	v.add_child(UiKit.lbl("Catalogue a shelf", 16, UiKit.GOLD))
-	var shelves := HBoxContainer.new()
-	v.add_child(shelves)
-	for s in CatalogueDraw.shelves():
-		var sid := str(s.id)
-		var b := UiKit.btn(str(s.name), 120)
-		b.tooltip_text = str(s.hint)
-		b.pressed.connect(func() -> void:
-			Game.catalogue_choose_shelf(sid)
-			_rebuild_desk()
-			_refresh()
-		)
-		shelves.add_child(b)
-	slips_box = VBoxContainer.new()
-	v.add_child(slips_box)
-	var leave := UiKit.btn("Continue down", 200)
-	leave.pressed.connect(func() -> void:
-		Game.continue_from_stack()
-	)
-	v.add_child(leave)
+	level_panel.add_child(v)
+	v.add_child(UiKit.lbl("A new edition.", 22, UiKit.GOLD))
+	v.add_child(UiKit.lbl("One click. It slams onto a shelf.  1 / 2 / 3", 13, UiKit.DIM))
+	cards_row = HBoxContainer.new()
+	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards_row.add_theme_constant_override("separation", 12)
+	cards_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(cards_row)
 
 
-func _rebuild_desk() -> void:
-	if returns_box == null:
-		return
-	for c in returns_box.get_children():
+func _rebuild_cards() -> void:
+	for c in cards_row.get_children():
 		c.queue_free()
-	returns_box.add_child(UiKit.lbl("Hand in unidentified folios", 16, UiKit.GOLD))
-	var idxs: Array = Game.unid_inv_indices()
-	if idxs.is_empty():
-		returns_box.add_child(UiKit.lbl("None in the satchel.", 13, UiKit.DIM))
-	for i in idxs:
-		var it: Dictionary = Game.inventory[i]
-		var pay := 2
-		match str(it.get("quality", "mixed")):
-			"promising":
-				pay = 3
-			"sour":
-				pay = 1
-		var b := UiKit.btn("Return  ·  \"%s\"  ·  %d pages" % [it.get("tell", ""), pay], 640)
-		var idx: int = i
-		b.pressed.connect(func() -> void:
-			Game.return_folio(idx)
-			_rebuild_desk()
-			_refresh()
-		)
-		returns_box.add_child(b)
-	if slips_box == null:
-		return
-	for c in slips_box.get_children():
-		c.queue_free()
-	if Game.catalogue_shelf == "":
-		slips_box.add_child(UiKit.lbl("Pick a shelf. Three slips are laid out together. Nothing moves until you choose.", 13, UiKit.DIM))
-		return
-	slips_box.add_child(UiKit.lbl("Slips from %s  ·  lock or recatalogue (1 page)  ·  take one" % CatalogueDraw.shelf_name(Game.catalogue_shelf), 14, UiKit.PAPER))
 	for i in Game.catalogue_slips.size():
 		var slip: Dictionary = Game.catalogue_slips[i]
-		var row := HBoxContainer.new()
-		slips_box.add_child(row)
-		var locked := " [locked]" if bool(slip.get("locked", false)) else ""
-		var lab := UiKit.lbl("%s%s  —  %s" % [slip.title, locked, slip.note], 13, UiKit.PAPER)
-		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lab.custom_minimum_size = Vector2(280, 0)
-		row.add_child(lab)
-		var idx2: int = i
-		if not bool(slip.get("locked", false)):
-			var lk := UiKit.btn("Lock", 70)
-			lk.pressed.connect(func() -> void:
-				Game.catalogue_lock(idx2)
-				_rebuild_desk()
-				_refresh()
-			)
-			row.add_child(lk)
-			var rd := UiKit.btn("Recatalogue", 120)
-			rd.pressed.connect(func() -> void:
-				Game.catalogue_redraw(idx2)
-				_rebuild_desk()
-				_refresh()
-			)
-			row.add_child(rd)
-		var tk := UiKit.btn("Take", 70)
-		tk.pressed.connect(func() -> void:
-			Game.catalogue_take(idx2)
-			_rebuild_desk()
-			_refresh()
-		)
-		row.add_child(tk)
+		cards_row.add_child(_make_card(i, slip))
+
+
+func _make_card(index: int, slip: Dictionary) -> Control:
+	var card := Panel.new()
+	card.custom_minimum_size = Vector2(250, 260)
+	var v := VBoxContainer.new()
+	UiKit.fill(v)
+	v.offset_left = 10
+	v.offset_right = -10
+	v.offset_top = 8
+	v.offset_bottom = -8
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+	var icons := HBoxContainer.new()
+	v.add_child(icons)
+	var lock := Button.new()
+	lock.text = "shelved" if bool(slip.locked) else "shelve"
+	lock.toggle_mode = true
+	lock.button_pressed = bool(slip.locked)
+	lock.tooltip_text = "Shelve: keep this card."
+	lock.custom_minimum_size = Vector2(80, 28)
+	lock.pressed.connect(func() -> void:
+		Game.catalogue_toggle_lock(index)
+		_rebuild_cards()
+	)
+	icons.add_child(lock)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	icons.add_child(spacer)
+	var stamp := Button.new()
+	stamp.text = "stamp"
+	stamp.tooltip_text = "Reshelve this card (1 page)."
+	stamp.custom_minimum_size = Vector2(80, 28)
+	stamp.disabled = Game.pages < 1 or bool(slip.locked)
+	var idx_stamp := index
+	stamp.pressed.connect(func() -> void:
+		Game.catalogue_reshelve(idx_stamp)
+		_rebuild_cards()
+		_refresh()
+	)
+	icons.add_child(stamp)
+	v.add_child(UiKit.lbl(str(slip.stamp), 12, UiKit.DIM))
+	v.add_child(UiKit.lbl("Unidentified Folio", 18, UiKit.GOLD))
+	var art := ColorRect.new()
+	art.custom_minimum_size = Vector2(0, 72)
+	art.color = _shelf_color(str(slip.shelf))
+	v.add_child(art)
+	v.add_child(UiKit.lbl(str(slip.note), 14, UiKit.PAPER))
+	var take := UiKit.btn("Take  ·  %d" % (index + 1), 210)
+	take.pressed.connect(func() -> void:
+		slam_t = 0.25
+		Game.catalogue_take(index)
+	)
+	v.add_child(take)
+	return card
+
+
+func _shelf_color(shelf: String) -> Color:
+	match shelf:
+		"cookery":
+			return Color(0.55, 0.22, 0.14)
+		"reference":
+			return Color(0.22, 0.28, 0.48)
+		"maps":
+			return Color(0.22, 0.4, 0.26)
+		"accounts":
+			return Color(0.45, 0.34, 0.12)
+		_:
+			return Color(0.28, 0.16, 0.28)
+
+
+func _build_folio(root: Control) -> void:
+	folio_panel = Panel.new()
+	folio_panel.visible = false
+	folio_panel.set_anchors_preset(Control.PRESET_CENTER)
+	folio_panel.offset_left = -280
+	folio_panel.offset_top = -230
+	folio_panel.offset_right = 280
+	folio_panel.offset_bottom = 230
+	root.add_child(folio_panel)
+	var v := VBoxContainer.new()
+	UiKit.fill(v)
+	v.offset_left = 18
+	v.offset_right = -18
+	v.offset_top = 12
+	v.offset_bottom = -12
+	v.add_theme_constant_override("separation", 8)
+	folio_panel.add_child(v)
+	v.add_child(UiKit.lbl("A folio on the floor.", 20, UiKit.GOLD))
+	folio_tell = UiKit.lbl("", 15, UiKit.PAPER)
+	v.add_child(folio_tell)
+	book_draw = Control.new()
+	book_draw.custom_minimum_size = Vector2(0, 140)
+	book_draw.draw.connect(_draw_book)
+	v.add_child(book_draw)
+	folio_pity = UiKit.lbl("", 13, UiKit.DIM)
+	v.add_child(folio_pity)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	v.add_child(row)
+	var colb := UiKit.btn("Collate", 180)
+	colb.pressed.connect(func() -> void:
+		if folio_verb != "":
+			return
+		folio_verb = "collate"
+		book_open_t = 0.4
+		if book_draw:
+			book_draw.queue_redraw()
+	)
+	row.add_child(colb)
+	var cr := UiKit.btn("Crack", 180)
+	cr.pressed.connect(func() -> void:
+		if folio_verb != "":
+			return
+		folio_verb = "crack"
+		book_open_t = 0.4
+		if book_draw:
+			book_draw.queue_redraw()
+	)
+	row.add_child(cr)
+
+
+func _draw_book() -> void:
+	if book_draw == null:
+		return
+	var sz := book_draw.size
+	var cx := sz.x * 0.5
+	var cy := sz.y * 0.55
+	var open := 0.0
+	if book_open_t > 0.0:
+		open = clampf(1.0 - book_open_t / 0.4, 0.0, 1.0)
+	elif folio_verb == "" and Game.phase != Game.Phase.FOLIO:
+		open = 1.0
+	var cover := Color(0.45, 0.18, 0.14)
+	var page := Color(0.93, 0.88, 0.76)
+	if open < 0.08:
+		book_draw.draw_rect(Rect2(cx - 48, cy - 58, 96, 110), cover)
+		book_draw.draw_rect(Rect2(cx - 40, cy - 50, 80, 94), Color(0.35, 0.12, 0.1))
+		book_draw.draw_rect(Rect2(cx - 2, cy - 58, 4, 110), Color(0.72, 0.52, 0.18))
+	else:
+		var spread := 40.0 + 50.0 * open
+		book_draw.draw_rect(Rect2(cx - spread - 8, cy - 58, spread, 110), cover)
+		book_draw.draw_rect(Rect2(cx + 8, cy - 58, spread, 110), cover.darkened(0.15))
+		book_draw.draw_rect(Rect2(cx - spread, cy - 50, spread - 6, 94), page)
+		book_draw.draw_rect(Rect2(cx + 10, cy - 50, spread - 6, 94), page)
+		for i in 5:
+			var y := cy - 36 + i * 14
+			var wobble := sin(Time.get_ticks_msec() * 0.02 + i) * 3.0 * open
+			book_draw.draw_line(Vector2(cx - spread + 10, y + wobble), Vector2(cx - 14, y), Color(0.28, 0.2, 0.16, 0.55), 1.0)
+			book_draw.draw_line(Vector2(cx + 14, y), Vector2(cx + spread - 10, y - wobble), Color(0.28, 0.2, 0.16, 0.55), 1.0)
 
 
 func _build_recap(root: Control) -> void:
 	recap_panel = Panel.new()
 	recap_panel.visible = false
 	recap_panel.set_anchors_preset(Control.PRESET_CENTER)
-	recap_panel.offset_left = -320
-	recap_panel.offset_top = -240
-	recap_panel.offset_right = 320
-	recap_panel.offset_bottom = 240
+	recap_panel.offset_left = -360
+	recap_panel.offset_top = -280
+	recap_panel.offset_right = 360
+	recap_panel.offset_bottom = 300
 	root.add_child(recap_panel)
 	var v := VBoxContainer.new()
 	UiKit.fill(v)
-	v.offset_left = 20
-	v.offset_right = -20
-	v.offset_top = 16
-	v.offset_bottom = -16
+	v.offset_left = 18
+	v.offset_right = -18
+	v.offset_top = 12
+	v.offset_bottom = -12
 	recap_panel.add_child(v)
-	v.add_child(UiKit.lbl("Closed Stack", 26, UiKit.GOLD))
-	recap_body = UiKit.lbl("", 16, UiKit.PAPER)
+	v.add_child(UiKit.lbl("Closed Stack", 24, UiKit.GOLD))
+	recap_body = UiKit.lbl("", 15, UiKit.PAPER)
 	v.add_child(recap_body)
+	v.add_child(UiKit.lbl("Returns Desk  ·  pages buy unidentified folios for the next run. Nothing is for sale.", 13, UiKit.DIM))
+	desk_box = VBoxContainer.new()
+	v.add_child(desk_box)
 	var b := UiKit.btn("Return to Menu")
 	b.pressed.connect(func() -> void:
 		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
@@ -390,207 +459,118 @@ func _build_recap(root: Control) -> void:
 	v.add_child(b)
 
 
-func _on_stack() -> void:
-	stack_panel.visible = true
-	inv_open = false
-	inv_panel.visible = false
-	_rebuild_desk()
+func _rebuild_desk() -> void:
+	for c in desk_box.get_children():
+		c.queue_free()
+	desk_box.add_child(UiKit.lbl("Pages in the bank: %d   ·   stamped for next run: %d/%d" % [
+		Persist.bank_pages, Persist.next_folios.size(), Catalog.NEXT_FOLIO_CAP
+	], 14, UiKit.PAPER))
+	var buy := UiKit.btn("Stamp a folio  ·  %d pages" % Catalog.FOLIO_COST, 320)
+	buy.disabled = Persist.bank_pages < Catalog.FOLIO_COST or Persist.next_folios.size() >= Catalog.NEXT_FOLIO_CAP
+	buy.pressed.connect(func() -> void:
+		Game.stamp_next_folio()
+		_rebuild_desk()
+	)
+	desk_box.add_child(buy)
+
+
+func _on_levelup() -> void:
+	level_panel.visible = true
+	_rebuild_cards()
 	_refresh()
 
 
-func _on_stack_closed() -> void:
-	stack_panel.visible = false
+func _on_levelup_closed() -> void:
+	level_panel.visible = false
+	_refresh()
+
+
+func _on_folio() -> void:
+	folio_panel.visible = true
+	book_open_t = 0.0
+	folio_verb = ""
+	var f: Dictionary = Game.pending_folio
+	folio_tell.text = "Tell: \"%s\"" % str(f.get("tell", ""))
+	folio_pity.text = Catalog.librarian_pity_line(Game.curse_streak)
+	if book_draw:
+		book_draw.queue_redraw()
+	_refresh()
+
+
+func _on_folio_closed() -> void:
+	book_open_t = 0.35
+	folio_panel.visible = false
 	_refresh()
 
 
 func _on_recap() -> void:
 	pause_open = false
 	pause_panel.visible = false
-	stack_panel.visible = false
-	inv_panel.visible = false
+	level_panel.visible = false
+	folio_panel.visible = false
 	var e: Dictionary = Game.recap()
-	var title := "You escaped the stacks." if Game.won else "You died in the stacks."
-	recap_body.text = "%s\n\n%s\nDepth reached: %s\nKills: %s\nGold: %s    Pages: %s\nTurns: %s\nSpines cracked: %s  (clean/flare %s)\nBiggest catalogue win: %s\nWorst misfile: %s\n\nLocal graveyard only." % [
-		title, e.cause, e.depth, e.kills, e.gold, e.pages, e.turns, e.get("cracks", 0), e.get("crack_wins", 0),
-		e.biggest_win, e.biggest_loss
+	var title := "You closed the hour." if Game.won else "You were overdue."
+	recap_body.text = "%s\n\n%s\nTime survived: %s\nLevel: %s\nKills: %s\nGold: %s    Pages this run: %s\nTomes: %s\nSpines cracked: %s  (strong editions %s)\nBest folio recovered: %s\nWorst misfile: %s\n\nLocal graveyard only." % [
+		title, e.cause, e.time, e.level, e.kills, e.gold, e.pages, e.tomes,
+		e.get("cracks", 0), e.get("crack_strong", 0), e.biggest_find, e.worst_misfile
 	]
+	_rebuild_desk()
 	recap_panel.visible = true
 	_refresh()
 
 
 func _set_pause(on: bool) -> void:
+	if Game.phase == Game.Phase.RECAP or Game.phase == Game.Phase.LEVELUP or Game.phase == Game.Phase.FOLIO:
+		return
 	pause_open = on
 	pause_panel.visible = on
-	if not on:
+	if on:
+		Game.phase = Game.Phase.PAUSED
+	else:
+		Game.phase = Game.Phase.RUN
 		settings_panel.visible = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if recap_panel.visible:
 		return
+	if Game.phase == Game.Phase.LEVELUP and event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_1:
+				Game.catalogue_take(0)
+				get_viewport().set_input_as_handled()
+				return
+			KEY_2:
+				Game.catalogue_take(1)
+				get_viewport().set_input_as_handled()
+				return
+			KEY_3:
+				Game.catalogue_take(2)
+				get_viewport().set_input_as_handled()
+				return
 	if event.is_action_pressed("pause"):
-		if Game.phase == Game.Phase.STACK:
-			Game.continue_from_stack()
-			get_viewport().set_input_as_handled()
-			return
-		if inv_open:
-			inv_open = false
-			inv_panel.visible = false
-			get_viewport().set_input_as_handled()
+		if Game.phase == Game.Phase.LEVELUP or Game.phase == Game.Phase.FOLIO:
 			return
 		_set_pause(not pause_open)
 		get_viewport().set_input_as_handled()
-		return
-	if pause_open or Game.phase == Game.Phase.STACK or Game.phase == Game.Phase.RECAP:
-		return
-	if event.is_action_pressed("inventory"):
-		inv_open = not inv_open
-		inv_panel.visible = inv_open
-		_rebuild_inv()
-		get_viewport().set_input_as_handled()
-		return
-	if inv_open:
-		_inv_input(event)
-		return
-	if event.is_action_pressed("stairs"):
-		Game.use_stairs()
-		get_viewport().set_input_as_handled()
-		return
-	if event.is_action_pressed("wait"):
-		Game.wait_turn()
-		get_viewport().set_input_as_handled()
-		return
-	var d := _dir_from_event(event)
-	if d != Vector2i.ZERO:
-		Game.try_move(d.x, d.y)
-		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var world := camera.get_global_mouse_position()
-		var tile: Vector2i = view.world_to_tile(world)
-		var dx := clampi(tile.x - int(Game.player.x), -1, 1)
-		var dy := clampi(tile.y - int(Game.player.y), -1, 1)
-		if dx != 0 or dy != 0:
-			Game.try_move(dx, dy)
-		get_viewport().set_input_as_handled()
-
-
-func _dir_from_event(event: InputEvent) -> Vector2i:
-	if event.is_action_pressed("move_n"):
-		return Vector2i(0, -1)
-	if event.is_action_pressed("move_s"):
-		return Vector2i(0, 1)
-	if event.is_action_pressed("move_w"):
-		return Vector2i(-1, 0)
-	if event.is_action_pressed("move_e"):
-		return Vector2i(1, 0)
-	if event.is_action_pressed("move_nw"):
-		return Vector2i(-1, -1)
-	if event.is_action_pressed("move_ne"):
-		return Vector2i(1, -1)
-	if event.is_action_pressed("move_sw"):
-		return Vector2i(-1, 1)
-	if event.is_action_pressed("move_se"):
-		return Vector2i(1, 1)
-	return Vector2i.ZERO
-
-
-func _inv_input(event: InputEvent) -> void:
-	if event.is_action_pressed("move_n"):
-		inv_index = maxi(0, inv_index - 1)
-		_rebuild_inv()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("move_s"):
-		inv_index = mini(Game.inventory.size() - 1, inv_index + 1)
-		_rebuild_inv()
-		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_E:
-				_inv_equip()
-			KEY_U:
-				_inv_use()
-			KEY_D:
-				_inv_drop()
-			KEY_R:
-				_inv_read()
-			KEY_G:
-				_inv_gamble()
-
-
-func _sel() -> int:
-	if Game.inventory.is_empty():
-		return -1
-	return clampi(inv_index, 0, Game.inventory.size() - 1)
-
-
-func _inv_equip() -> void:
-	Game.equip_item(_sel())
-	_rebuild_inv()
-
-
-func _inv_use() -> void:
-	Game.use_item(_sel())
-	_rebuild_inv()
-
-
-func _inv_drop() -> void:
-	Game.drop_item(_sel())
-	_rebuild_inv()
-
-
-func _inv_read() -> void:
-	Game.carefully_read(_sel())
-	_rebuild_inv()
-
-
-func _inv_gamble() -> void:
-	Game.gamble_read(_sel())
-	_rebuild_inv()
-
-
-func _rebuild_inv() -> void:
-	for c in inv_list.get_children():
-		c.queue_free()
-	if Game.inventory.is_empty():
-		inv_list.add_child(UiKit.lbl("(empty satchel)", 14, UiKit.DIM))
-		return
-	inv_index = clampi(inv_index, 0, Game.inventory.size() - 1)
-	for i in Game.inventory.size():
-		var it: Dictionary = Game.inventory[i]
-		var mark := ">" if i == inv_index else " "
-		var extra := ""
-		if str(it.kind) == "unid":
-			extra = "  tell: \"%s\"" % it.get("tell", "")
-		elif str(it.kind) == "tome":
-			extra = "  ATK %d  %s" % [int(it.atk), it.effect]
-		elif str(it.kind) == "binding":
-			extra = "  DEF %d" % int(it.def)
-		var l := UiKit.lbl("%s %s%s" % [mark, it.name, extra], 14, UiKit.GOLD if i == inv_index else UiKit.PAPER)
-		inv_list.add_child(l)
-	var flash: Dictionary = Game.last_identify
-	if not flash.is_empty():
-		inv_list.add_child(UiKit.lbl("Last: %s → %s (%s)" % [flash.get("kind", ""), flash.get("name", ""), flash.get("outcome", "")], 13, UiKit.GOLD))
-	inv_list.add_child(UiKit.lbl("Crack pity: %d/%d misfiles in a row (third is clean)." % [Game.curse_streak, Catalog.PITY_CURSES], 12, UiKit.DIM))
 
 
 func _refresh() -> void:
 	if Game.player.is_empty():
 		return
 	hud_stats.text = Game.hud_line()
-	hp_bar.max_value = int(Game.player.hp_max)
-	hp_bar.value = int(Game.player.hp)
-	var lines := Game.last_messages(7)
+	hp_bar.max_value = float(Game.player.hp_max)
+	hp_bar.value = float(Game.player.hp)
+	xp_bar.max_value = maxi(1, Game.xp_next)
+	xp_bar.value = Game.xp
+	tome_lbl.text = Game.tome_line()
+	var lines := Game.last_messages(4)
 	var bb := ""
 	for i in lines.size():
 		var col := "#e8dcc4" if i == lines.size() - 1 else "#9a8c7a"
 		bb += "[color=%s]%s[/color]\n" % [col, lines[i]]
 	log_box.text = bb
 	if Persist.key_hints:
-		hint_lbl.text = "WASD/arrows/numpad move · . wait · I satchel · Esc pause · bump stairs"
+		hint_lbl.text = "WASD/arrows move  ·  tomes fire themselves  ·  Esc pause"
 	else:
 		hint_lbl.text = ""
-	if not Game.player.is_empty() and view:
-		camera.position = view.tile_to_world(int(Game.player.x), int(Game.player.y))
-	if inv_open:
-		_rebuild_inv()

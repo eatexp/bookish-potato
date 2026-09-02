@@ -10,7 +10,7 @@ const GOLD := Color(0.83, 0.63, 0.14, 1)
 const PAPER := Color(0.91, 0.86, 0.76, 1)
 const DIM := Color(0.62, 0.55, 0.46, 1)
 const HP := Color(0.72, 0.24, 0.18, 1)
-const FELT := Color(0.12, 0.28, 0.20, 1)
+const INK := Color(0.18, 0.14, 0.12, 1)
 
 static var _input_ready := false
 
@@ -27,10 +27,6 @@ static func ensure_input() -> void:
 	_act("move_ne", [KEY_KP_9, KEY_E])
 	_act("move_sw", [KEY_KP_1, KEY_Z])
 	_act("move_se", [KEY_KP_3, KEY_C])
-	_act("wait", [KEY_PERIOD, KEY_KP_5, KEY_X])
-	_act("inventory", [KEY_I])
-	_act("blurb", [KEY_B])
-	_act("stairs", [KEY_COMMA, KEY_GREATER])
 	_act("pause", [KEY_ESCAPE])
 	_act("confirm", [KEY_ENTER, KEY_SPACE, KEY_KP_ENTER])
 

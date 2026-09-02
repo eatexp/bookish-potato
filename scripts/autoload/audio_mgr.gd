@@ -20,7 +20,7 @@ func _ready() -> void:
 			_music.play()
 	)
 	var names := [
-		"hit", "miss", "pickup", "stairs", "death", "page", "slot", "curse",
+		"hit", "miss", "pickup", "stairs", "death", "page", "curse",
 		"identify", "win", "boom", "potion", "ui", "open"
 	]
 	for n in names:

@@ -32,14 +32,14 @@ func _build() -> void:
 	title.size = Vector2(1100, 52)
 	add_child(title)
 
-	var sub := UiKit.lbl("The First Edition    ·    v0.1    ·    a turn-based dungeon crawler", 18, UiKit.PAPER)
+	var sub := UiKit.lbl("The First Edition    ·    v0.1    ·    a library survival", 18, UiKit.PAPER)
 	sub.position = Vector2(80, 90)
 	sub.size = Vector2(1000, 28)
 	add_child(sub)
 
-	var tag := UiKit.lbl("Grid. Fog of war. Permadeath. Unidentified editions. Collate or crack the spine.", 15, UiKit.DIM)
+	var tag := UiKit.lbl("Real-time hordes. Tomes fire themselves. Unidentified editions. Collate or crack the spine.", 15, UiKit.DIM)
 	tag.position = Vector2(80, 122)
-	tag.size = Vector2(1000, 28)
+	tag.size = Vector2(1100, 28)
 	add_child(tag)
 
 	var col := VBoxContainer.new()
@@ -83,7 +83,7 @@ func _build() -> void:
 	for b in [b_new, b_how, b_set, b_gr, b_quit]:
 		col.add_child(b)
 
-	var flavor := UiKit.lbl("Five floors. Recover the Notable Folio and walk the Binding Exit. Unread books carry a librarian's tell — collate safely, or crack the spine. There is no mid-run save.\n\nThis game does not contain any real-world currency gambling or microtransactions.", 15, UiKit.PAPER)
+	var flavor := UiKit.lbl("One floor of stacks. Survive the hour. Level-up is three unread folios — one click shelves a tome.\n\nThis game does not contain any real-world currency gambling or microtransactions.", 15, UiKit.PAPER)
 	flavor.position = Vector2(80, 500)
 	flavor.size = Vector2(720, 160)
 	add_child(flavor)
@@ -159,7 +159,7 @@ func _make_settings() -> Control:
 		Persist.save_settings()
 	))
 
-	v.add_child(UiKit.lbl("Keys: WASD / arrows / numpad (diagonals). Wait: . or numpad 5. Inventory: I. Esc: pause. Stairs: , or bump.", 14, UiKit.DIM))
+	v.add_child(UiKit.lbl("WASD or arrows to move. Tomes fire themselves. Esc pauses.", 14, UiKit.DIM))
 	return p
 
 
@@ -187,8 +187,8 @@ func _refresh_grave() -> void:
 		_grave_box.add_child(UiKit.lbl("No closed runs yet.", 15, UiKit.DIM))
 		return
 	for e in Persist.graveyard:
-		var line := "%s  ·  %s at depth %s  ·  kills %s  ·  gold %s  pages %s  ·  %s" % [
-			e.get("outcome", "?"), e.get("cause", ""), e.get("depth", "?"),
-			e.get("kills", "?"), e.get("gold", "?"), e.get("pages", "?"), e.get("when", "")
+		var line := "%s  ·  %s  ·  %s  ·  kills %s  ·  pages %s  ·  %s" % [
+			e.get("outcome", "?"), e.get("time", "?"), e.get("cause", ""),
+			e.get("kills", "?"), e.get("pages", "?"), e.get("when", "")
 		]
 		_grave_box.add_child(UiKit.lbl(line, 13, UiKit.PAPER))
