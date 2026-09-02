@@ -103,6 +103,9 @@ func _copy() -> int:
 
 
 func _run_loop() -> int:
+	if root.get_node_or_null("Game") == null:
+		push_error("Game autoload missing")
+		return 1
 	var G: Node = root.get_node("Game")
 	var P: Node = root.get_node("Persist")
 	G.new_run(42)

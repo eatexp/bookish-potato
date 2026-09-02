@@ -151,13 +151,14 @@ func tick(dt: float) -> void:
 
 func _build_stacks() -> void:
 	stacks.clear()
-	var rows := [-520.0, -260.0, 0.0, 260.0, 520.0]
-	var cols := [-620.0, -200.0, 220.0, 640.0]
+	var rows := [-520.0, -260.0, 260.0, 520.0]
+	var cols := [-720.0, -360.0, 150.0, 510.0]
 	for y in rows:
 		for x in cols:
-			if absf(x) < 80.0 and absf(y) < 80.0:
+			var r := Rect2(x, y, 200.0, 38.0)
+			if r.grow(48.0).has_point(Vector2.ZERO):
 				continue
-			stacks.append(Rect2(x, y, 210.0, 40.0))
+			stacks.append(r)
 
 
 func _blocked(pos: Vector2, radius: float) -> bool:
@@ -331,9 +332,9 @@ func _fire_pattern(w: Dictionary, lv: int) -> void:
 				var dir4 := face.rotated(t * 1.4)
 				_proj(player.pos + dir4 * 12.0, dir4 * 320.0, dmg, 0.5, 10.0, "hymnal", 42.0 + 6.0 * lv, 0.0, 1)
 		"ledger":
-			var tgt := _nearest_enemy()
+			var tgt: Dictionary = _nearest_enemy()
 			var dir5 := face
-			if tgt != null:
+			if not tgt.is_empty():
 				dir5 = (tgt.pos - player.pos).normalized()
 			_proj(player.pos + dir5 * 14.0, dir5 * 390.0, dmg, 1.1, 6.0, "ledger", 0.0, 0.0, 0, true, 1)
 		_:
@@ -464,8 +465,8 @@ func _projectiles_tick(dt: float) -> void:
 			keep.append(pr)
 			continue
 		if bool(pr.seek):
-			var tgt := _nearest_enemy()
-			if tgt != null:
+			var tgt: Dictionary = _nearest_enemy()
+			if not tgt.is_empty():
 				pr.vel = pr.vel.lerp((tgt.pos - pr.pos).normalized() * 390.0, 0.12)
 		pr.pos += pr.vel * dt
 		if bool(pr.from_player):
@@ -737,8 +738,8 @@ func stamp_next_folio() -> bool:
 	return Persist.try_stamp_folio(rng)
 
 
-func _nearest_enemy() -> Variant:
-	var best: Variant = null
+func _nearest_enemy() -> Dictionary:
+	var best: Dictionary = {}
 	var bd := 1e12
 	var ppos: Vector2 = player.pos
 	for e in enemies:
