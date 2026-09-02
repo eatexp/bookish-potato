@@ -341,16 +341,16 @@ static func enemy_template(kind: String, wave: float) -> Dictionary:
 		"nymph":
 			e.name = "Booklouse Nymph"
 			e.hp = 8.0 + w * 2.4
-			e.atk = 6.0 + w * 0.45
-			e.speed = 96.0 + w * 1.8
+			e.atk = 4.0 + w * 0.25
+			e.speed = 78.0 + w * 1.2
 			e.radius = 10.0
 			e.sprite = 2
 			e.xp = 1
 		"adult":
 			e.name = "Booklouse"
 			e.hp = 16.0 + w * 4.0
-			e.atk = 9.0 + w * 0.7
-			e.speed = 62.0
+			e.atk = 6.0 + w * 0.45
+			e.speed = 54.0
 			e.radius = 14.0
 			e.sprite = 2
 			e.xp = 2
@@ -358,8 +358,8 @@ static func enemy_template(kind: String, wave: float) -> Dictionary:
 		"winged":
 			e.name = "Winged Booklouse"
 			e.hp = 11.0 + w * 2.8
-			e.atk = 7.0 + w * 0.5
-			e.speed = 108.0
+			e.atk = 5.0 + w * 0.3
+			e.speed = 92.0
 			e.radius = 11.0
 			e.ai = "errata"
 			e.sprite = 7

@@ -86,7 +86,7 @@ func new_run(p_seed: int = 0) -> void:
 	crack_strong = 0
 	curse_streak = 0
 	surge_started = false
-	spawn_acc = 0.35
+	spawn_acc = 2.2
 	sfx_fire_cd = 0.0
 	next_id = 1
 	next_uid = 1
@@ -107,7 +107,7 @@ func new_run(p_seed: int = 0) -> void:
 		"facing": Vector2.RIGHT,
 		"hp": 100.0,
 		"hp_max": 100.0,
-		"speed": 168.0,
+		"speed": 188.0,
 		"radius": 12.0,
 		"iframe": 0.0,
 		"name": "the bookish potato",
@@ -384,13 +384,17 @@ func _spawn_tick(dt: float) -> void:
 	if spawn_acc > 0.0:
 		return
 	var t := elapsed
-	var interval := clampf(1.1 - t / 200.0, 0.20, 1.1)
+	var interval := clampf(1.45 - t / 280.0, 0.28, 1.45)
 	if surge_started:
 		interval *= 0.45
 	spawn_acc = interval
-	var n := 1 + int(t / 65.0)
-	if surge_started:
-		n += 3
+	var n := 1
+	if t > 45.0:
+		n += 1
+	if t > 120.0:
+		n += 1
+	if t > 240.0:
+		n += 1
 	n = mini(n, 8)
 	if enemies.size() > 160:
 		n = mini(n, 2)
@@ -542,6 +546,10 @@ func _contacts() -> void:
 	for e2 in enemies:
 		if ppos.distance_to(e2.pos) < float(player.radius) + float(e2.radius) * 0.85:
 			_hurt_player(float(e2.atk) * (1.0 - _armor()), e2.name)
+			var away: Vector2 = ppos - e2.pos
+			if away.length() < 0.2:
+				away = Vector2.RIGHT
+			player.pos = _slide(player.pos, away.normalized() * 36.0, float(player.radius))
 			return
 
 
@@ -549,7 +557,7 @@ func _hurt_player(dmg: float, src: String) -> void:
 	if float(player.iframe) > 0.0 or not run_active:
 		return
 	player.hp = float(player.hp) - dmg
-	player.iframe = 0.42
+	player.iframe = 0.65
 	AudioMgr.play("hit")
 	if float(player.hp) <= 0.0:
 		cause = src
