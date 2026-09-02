@@ -54,6 +54,17 @@ var surge_started := false
 var catalogue_slips: Array = []
 var pending_folio := {}
 var last_slam := ""
+var offer_index := 0
+var folio_ui_open_ms := 0
+var folio_ui_samples: Array = []
+var atlas_orbs: Array = []
+var cookbook_r := 0.0
+var horde_cap := Catalog.HORDE_CAP
+var far_throttle := false
+var perf_stage := 0
+var tick_i := 0
+var last_dt := 0.016
+var locked_hold: Array = []
 
 var smoke_move := Vector2.ZERO
 
@@ -93,6 +104,14 @@ func new_run(p_seed: int = 0) -> void:
 	catalogue_slips.clear()
 	pending_folio = {}
 	last_slam = ""
+	offer_index = 0
+	atlas_orbs.clear()
+	cookbook_r = 0.0
+	horde_cap = Catalog.HORDE_CAP
+	far_throttle = false
+	perf_stage = 0
+	tick_i = 0
+	locked_hold.clear()
 	last_identify = {}
 	biggest_find = {"desc": "none", "value": 0}
 	worst_misfile = {"desc": "none", "value": 0}
@@ -105,8 +124,8 @@ func new_run(p_seed: int = 0) -> void:
 	player = {
 		"pos": Vector2.ZERO,
 		"facing": Vector2.RIGHT,
-		"hp": 100.0,
-		"hp_max": 100.0,
+		"hp": 120.0,
+		"hp_max": 120.0,
 		"speed": 188.0,
 		"radius": 12.0,
 		"iframe": 0.0,
@@ -115,7 +134,7 @@ func new_run(p_seed: int = 0) -> void:
 	_build_stacks()
 	_add_weapon(Catalog.starter_tome())
 	_place_reserved_folios()
-	_log("The stacks are open. Margin Notes fires itself. The hour will close.")
+	_log("The Stacks are open. Primer fires itself. Closing Time will come.")
 	phase = Phase.RUN
 
 
@@ -130,6 +149,8 @@ func tick(dt: float) -> void:
 	if not run_active or phase != Phase.RUN:
 		return
 	dt = minf(dt, 0.05)
+	last_dt = dt
+	_perf_budget()
 	elapsed += dt
 	if elapsed >= Catalog.STAGE_SECS:
 		_win()
@@ -187,7 +208,7 @@ func _move_player(dt: float) -> void:
 		v = Input.get_vector("move_w", "move_e", "move_n", "move_s")
 	if v.length() > 1.0:
 		v = v.normalized()
-	var spd: float = float(player.speed)
+	var spd: float = float(player.speed) + _speed_bonus()
 	player.pos = _slide(player.pos, v * spd * dt, float(player.radius))
 	if v.length() > 0.15:
 		player.facing = v.normalized()
@@ -196,7 +217,7 @@ func _move_player(dt: float) -> void:
 func _magnet() -> float:
 	var m := 18.0
 	for p in passives:
-		if str(p.pattern) == "bookmark":
+		if str(p.pattern) == "bookplate":
 			m += 70.0 * int(p.level)
 	return m
 
@@ -204,13 +225,21 @@ func _magnet() -> float:
 func _armor() -> float:
 	var a := 0.0
 	for p in passives:
-		if str(p.pattern) == "clasps":
+		if str(p.pattern) == "jacket":
 			a += 0.08 * int(p.level)
 	return minf(0.5, a)
 
 
+func _speed_bonus() -> float:
+	var s := 0.0
+	for p in passives:
+		if str(p.pattern) == "overdue":
+			s += 12.0 * int(p.level)
+	return s
+
+
 func _add_weapon(item: Dictionary) -> void:
-	var pattern := str(item.get("pattern", "notes"))
+	var pattern := str(item.get("pattern", "primer"))
 	for w in weapons:
 		if str(w.pattern) == pattern:
 			w.level = mini(8, int(w.level) + 1)
@@ -220,24 +249,27 @@ func _add_weapon(item: Dictionary) -> void:
 			return
 	if weapons.size() >= Catalog.MAX_WEAPONS:
 		pages += 2
-		_log("Six tomes already. The folio becomes pages.")
+		_log("Five tomes already. The folio becomes pages.")
 		return
 	var d := Catalog.def_by_pattern(pattern)
 	weapons.append({
 		"pattern": pattern,
 		"name": str(item.get("name", d.get("name", "Tome"))),
 		"level": 1,
-		"cd": 0.12,
+		"cd": 0.0,
 		"cd_max": float(item.get("cd", d.get("cd", 0.8))),
 		"atk": int(item.get("atk", d.get("atk", 8))),
 		"angle": rng.randf() * TAU,
 	})
 	last_slam = str(item.get("name", "a tome"))
 	_log("%s slams onto the shelf. It fires itself." % last_slam)
+	if pattern == "primer":
+		_fire_pattern(weapons[weapons.size() - 1], 1)
+		weapons[weapons.size() - 1].cd = float(weapons[weapons.size() - 1].cd_max)
 
 
 func _add_passive(item: Dictionary) -> void:
-	var pattern := str(item.get("pattern", "bookmark"))
+	var pattern := str(item.get("pattern", "bookplate"))
 	for p in passives:
 		if str(p.pattern) == pattern:
 			p.level = mini(5, int(p.level) + 1)
@@ -261,7 +293,7 @@ func _add_passive(item: Dictionary) -> void:
 
 
 func _apply_passive_hp(pattern: String) -> void:
-	if pattern == "cloth":
+	if pattern == "colophon":
 		player.hp_max = float(player.hp_max) + 18.0
 		player.hp = minf(float(player.hp_max), float(player.hp) + 18.0)
 
@@ -276,21 +308,26 @@ func _apply_item(item: Dictionary, curse_hp: int = 0) -> void:
 			_add_passive(item)
 			_note_find(str(item.name), 6)
 		"curse":
-			var hurt := maxi(curse_hp, 8)
-			player.hp = maxf(1.0, float(player.hp) - float(hurt))
-			_note_misfile(str(item.name), hurt)
-			_log("A misfile. The page hurts.")
+			var hurt := maxi(curse_hp, 0)
+			if hurt > 0:
+				player.hp = maxf(1.0, float(player.hp) - float(hurt))
+				_note_misfile(str(item.name), hurt)
+				_log("A taxed page. The sting is the fee; the folio still shelves.")
 		_:
 			pages += 1
 
 
 func _weapons_tick(dt: float) -> void:
+	atlas_orbs.clear()
+	cookbook_r = 0.0
 	for w in weapons:
 		var lv := int(w.level)
 		var cd_max: float = maxf(0.18, float(w.cd_max) / (1.0 + 0.07 * float(lv - 1)))
 		match str(w.pattern):
 			"atlas":
 				_atlas_tick(w, dt)
+			"cookbook":
+				_cookbook_tick(w, dt)
 			_:
 				w.cd = float(w.cd) - dt
 				if float(w.cd) <= 0.0:
@@ -306,39 +343,30 @@ func _fire_pattern(w: Dictionary, lv: int) -> void:
 	face = face.normalized()
 	_maybe_fire_sfx()
 	match str(w.pattern):
-		"notes":
+		"primer":
 			var n := 1 + lv / 3
 			for i in n:
-				var spread := (float(i) - float(n - 1) * 0.5) * 0.14
+				var spread := (float(i) - float(n - 1) * 0.5) * 0.16
 				var dir := face.rotated(spread)
-				_proj(player.pos + dir * 16.0, dir * 430.0, dmg, 0.7, 6.0, "notes", 0.0, 0.0, 0)
-		"cookbook":
-			var n2 := 4 + lv / 2
-			var cone := 0.55 + 0.05 * lv
-			for i in n2:
-				var t := (float(i) / float(maxi(1, n2 - 1))) - 0.5
-				var dir2 := face.rotated(t * cone * 2.0)
-				_proj(player.pos + dir2 * 14.0, dir2 * 360.0, dmg, 0.55, 7.0, "cookbook", 0.0, 0.0, 0)
-			if lv >= 4:
-				for k in 8:
-					var dir3 := Vector2.from_angle(TAU * float(k) / 8.0)
-					_proj(player.pos, dir3 * 280.0, dmg * 0.7, 0.45, 8.0, "cookbook", 0.0, 0.0, 0)
+				_proj(player.pos + dir * 16.0, dir * 440.0, dmg, 0.72, 6.0, "primer", 0.0, 0.0, 0)
 		"dictionary":
-			_pulse(dmg, 48.0 + 10.0 * lv, 0.9 + 0.15 * lv)
-		"hymnal":
-			var n3 := 6 + lv / 2
+			_pulse(dmg, 52.0 + 10.0 * lv, 0.9 + 0.15 * lv)
+		"gazette":
+			var n3 := 7 + lv / 2
 			for i in n3:
 				var t := (float(i) / float(maxi(1, n3 - 1))) - 0.5
-				var dir4 := face.rotated(t * 1.4)
-				_proj(player.pos + dir4 * 12.0, dir4 * 320.0, dmg, 0.5, 10.0, "hymnal", 42.0 + 6.0 * lv, 0.0, 1)
-		"ledger":
-			var tgt: Dictionary = _nearest_enemy()
-			var dir5 := face
-			if not tgt.is_empty():
-				dir5 = (tgt.pos - player.pos).normalized()
-			_proj(player.pos + dir5 * 14.0, dir5 * 390.0, dmg, 1.1, 6.0, "ledger", 0.0, 0.0, 0, true, 1)
+				var dir4 := face.rotated(t * 1.35)
+				_proj(player.pos + dir4 * 12.0, dir4 * 340.0, dmg, 0.5, 8.0, "gazette", 48.0 + 8.0 * lv, 0.0, 1)
 		_:
-			_proj(player.pos + face * 16.0, face * 400.0, dmg, 0.7, 6.0, "notes", 0.0, 0.0, 0)
+			_proj(player.pos + face * 16.0, face * 400.0, dmg, 0.7, 6.0, "primer", 0.0, 0.0, 0)
+
+
+func _cookbook_tick(w: Dictionary, dt: float) -> void:
+	var lv := int(w.level)
+	var r := 58.0 + 8.0 * float(lv)
+	cookbook_r = r
+	var dmg := float(w.atk) * (1.0 + 0.14 * float(lv - 1)) * dt * 2.8
+	_hurt_circle(player.pos, r, dmg, 6.0, 0.0)
 
 
 func _atlas_tick(w: Dictionary, dt: float) -> void:
@@ -350,7 +378,8 @@ func _atlas_tick(w: Dictionary, dt: float) -> void:
 	for i in n:
 		var a: float = float(w.angle) + TAU * float(i) / float(n)
 		var p: Vector2 = player.pos + Vector2.from_angle(a) * rad
-		_hurt_circle(p, 12.0, dmg * dt * 3.2, 18.0, 0.0)
+		atlas_orbs.append(p)
+		_hurt_circle(p, 14.0, dmg * dt * 3.2, 18.0, 0.0)
 
 
 func _pulse(dmg: float, r_max: float, slow: float) -> void:
@@ -396,12 +425,14 @@ func _spawn_tick(dt: float) -> void:
 	if t > 240.0:
 		n += 1
 	n = mini(n, 8)
-	if enemies.size() > 160:
-		n = mini(n, 2)
-	if enemies.size() > 200:
+	if enemies.size() >= horde_cap:
 		return
+	if enemies.size() > Catalog.HORDE_SOFT:
+		n = mini(n, 2)
 	var wave := 1.0 + t / 95.0
 	for _i in n:
+		if enemies.size() >= horde_cap:
+			break
 		_spawn_enemy(Catalog.pick_enemy_kind(rng, t), wave)
 
 
@@ -420,10 +451,10 @@ func _spawn_enemy(kind: String, wave: float) -> void:
 func _start_surge() -> void:
 	surge_started = true
 	var wave := 1.0 + elapsed / 95.0
-	_spawn_enemy("overdue", wave)
+	_spawn_enemy("collector", wave)
 	for _i in 6:
-		_spawn_enemy("nymph", wave)
-	_log("Closing time. The brood thickens.")
+		_spawn_enemy("patron", wave)
+	_log("Closing Time. The Fine Collector is due.")
 	AudioMgr.play("open")
 
 
@@ -438,18 +469,22 @@ func _ring_pos(d0: float, d1: float) -> Vector2:
 
 
 func _enemies_tick(dt: float) -> void:
+	tick_i += 1
 	var ppos: Vector2 = player.pos
+	var far_sq := Catalog.FAR_PX * Catalog.FAR_PX
 	for e in enemies:
 		if float(e.hp) <= 0.0:
+			continue
+		var dsq: float = ppos.distance_squared_to(e.pos)
+		if far_throttle and dsq > far_sq and ((int(e.id) + tick_i) % 10) >= 3:
 			continue
 		e.slow_t = maxf(0.0, float(e.slow_t) - dt)
 		var smult := 0.4 if float(e.slow_t) > 0.0 else 1.0
 		var to_p: Vector2 = ppos - e.pos
-		var dist := to_p.length()
 		var dir := Vector2.RIGHT
-		if dist > 1.0:
-			dir = to_p / dist
-		if str(e.ai) == "errata":
+		if dsq > 1.0:
+			dir = to_p / sqrt(dsq)
+		if str(e.ai) == "strafe":
 			var side := Vector2(-dir.y, dir.x)
 			dir = (dir * 0.75 + side * sin(elapsed * 4.0 + float(e.id))).normalized()
 		e.pos = _slide(e.pos, dir * float(e.speed) * smult * dt, float(e.radius))
@@ -490,7 +525,7 @@ func _hurt_proj(pr: Dictionary) -> void:
 		var id := int(e.id)
 		if hits.has(id):
 			continue
-		if pr.pos.distance_to(e.pos) <= float(pr.radius) + float(e.radius):
+		if pr.pos.distance_squared_to(e.pos) <= (float(pr.radius) + float(e.radius)) * (float(pr.radius) + float(e.radius)):
 			hits[id] = true
 			_damage_enemy(e, float(pr.dmg), pr.pos, float(pr.knock), float(pr.slow))
 			if int(pr.gold_on_hit) > 0 and rng.randf() < 0.35:
@@ -505,7 +540,7 @@ func _hurt_circle(pos: Vector2, radius: float, dmg: float, knock: float, slow: f
 	for e in enemies:
 		if float(e.hp) <= 0.0:
 			continue
-		if pos.distance_to(e.pos) <= radius + float(e.radius):
+		if pos.distance_squared_to(e.pos) <= (radius + float(e.radius)) * (radius + float(e.radius)):
 			_damage_enemy(e, dmg, pos, knock, slow)
 
 
@@ -544,7 +579,8 @@ func _contacts() -> void:
 		return
 	var ppos: Vector2 = player.pos
 	for e2 in enemies:
-		if ppos.distance_to(e2.pos) < float(player.radius) + float(e2.radius) * 0.85:
+		var rsum: float = float(player.radius) + float(e2.radius) * 0.85
+		if ppos.distance_squared_to(e2.pos) < rsum * rsum:
 			_hurt_player(float(e2.atk) * (1.0 - _armor()), e2.name)
 			var away: Vector2 = ppos - e2.pos
 			if away.length() < 0.2:
@@ -575,7 +611,7 @@ func _pickups_tick(dt: float) -> void:
 		if pull > 0.0 and dist < pull:
 			it.pos += d.normalized() * 260.0 * dt
 			dist = it.pos.distance_to(player.pos)
-		if dist < float(player.radius) + 12.0:
+		if dist < float(player.radius) + (22.0 if kind != Catalog.Pickup.FOLIO else 14.0):
 			_take_pickup(it)
 		else:
 			keep.append(it)
@@ -629,6 +665,7 @@ func _offer_folio(preset: Dictionary) -> void:
 	else:
 		pending_folio = preset
 	phase = Phase.FOLIO
+	folio_ui_open_ms = Time.get_ticks_msec()
 	AudioMgr.play("open")
 	folio_opened.emit()
 
@@ -648,7 +685,15 @@ func _open_levelup() -> void:
 	if not run_active:
 		return
 	phase = Phase.LEVELUP
-	catalogue_slips = CatalogueDraw.draw_levelup(rng)
+	catalogue_slips = CatalogueDraw.draw_levelup(rng, offer_index, locked_hold)
+	for slip in catalogue_slips:
+		if CatalogueDraw.is_forbidden_levelup(slip, offer_index):
+			slip.item = Catalog.make_tome("cookbook", false)
+			slip.title = str(slip.item.name)
+			slip.kind = "tome"
+			slip.pattern = "cookbook"
+			slip.note = str(slip.item.desc)
+	folio_ui_open_ms = Time.get_ticks_msec()
 	AudioMgr.play("identify")
 	levelup_opened.emit()
 
@@ -660,32 +705,28 @@ func catalogue_toggle_lock(index: int) -> void:
 	slip.locked = not bool(slip.locked)
 
 
-func catalogue_reshelve(index: int) -> void:
-	if phase != Phase.LEVELUP or pages < 1:
-		return
-	if index < 0 or index >= catalogue_slips.size():
-		return
-	var slip: Dictionary = catalogue_slips[index]
-	if bool(slip.locked):
-		return
-	pages -= 1
-	catalogue_slips[index] = CatalogueDraw.draw_slip(rng, str(slip.shelf))
-	AudioMgr.play("page")
-
-
 func catalogue_take(index: int) -> void:
 	if phase != Phase.LEVELUP:
 		return
 	if index < 0 or index >= catalogue_slips.size():
 		return
 	var slip: Dictionary = catalogue_slips[index]
-	var unid: Dictionary = slip.unid
-	var result: Dictionary = Catalog.resolve_unidentified(rng, false, str(unid.quality), false, str(slip.shelf))
-	_apply_item(result.item, int(result.curse_hp))
-	pages += int(result.extra_pages)
-	last_identify = {"name": result.item.get("name", ""), "outcome": "shelve", "kind": "shelve"}
+	if CatalogueDraw.is_forbidden_levelup(slip, offer_index):
+		slip.item = Catalog.make_tome("atlas", false)
+	var kept: Array = []
+	for i in catalogue_slips.size():
+		if i == index:
+			continue
+		var other: Dictionary = catalogue_slips[i]
+		if bool(other.get("locked", false)):
+			kept.append(other.item)
+	locked_hold = kept
+	_apply_item(slip.item, 0)
+	last_identify = {"name": slip.item.get("name", ""), "outcome": "shelve", "kind": "shelve"}
 	pending_levelups = maxi(0, pending_levelups - 1)
+	offer_index += 1
 	catalogue_slips.clear()
+	_log_folio_ui()
 	AudioMgr.play("page")
 	if pending_levelups > 0:
 		_open_levelup()
@@ -708,18 +749,18 @@ func _resolve_floor_folio(crack: bool) -> void:
 	if crack:
 		cracks += 1
 	var block := crack and curse_streak >= Catalog.PITY_CURSES
-	var result: Dictionary = Catalog.resolve_unidentified(
-		rng, crack, str(pending_folio.get("quality", "mixed")), block, str(pending_folio.get("shelf", ""))
+	var result: Dictionary = Catalog.resolve_floor(
+		rng, crack, str(pending_folio.get("quality", "mixed")), block
 	)
 	last_identify = {"name": result.item.get("name", ""), "outcome": str(result.outcome), "kind": "crack" if crack else "collate"}
 	pages += int(result.extra_pages)
-	if str(result.outcome) == "curse":
-		if crack:
-			curse_streak += 1
-		_apply_item(result.item, int(result.curse_hp))
+	var tax := int(result.get("tax_hp", 0))
+	if tax > 0:
+		curse_streak += 1
+		player.hp = maxf(1.0, float(player.hp) - float(tax))
+		_note_misfile(str(result.item.name), tax)
 		AudioMgr.play("curse")
-		if crack and block:
-			_log(Catalog.librarian_pity_line(Catalog.PITY_CURSES))
+		_log("Crack: a fee of %d, and a rarer folio — %s. Extra pages %d." % [tax, result.item.get("name", ""), int(result.extra_pages)])
 	else:
 		if crack:
 			curse_streak = 0
@@ -728,16 +769,47 @@ func _resolve_floor_folio(crack: bool) -> void:
 				AudioMgr.play("boom")
 			else:
 				AudioMgr.play("identify")
+			_log("The book opens. The page reads: %s." % result.item.get("name", "an edition"))
 		else:
 			AudioMgr.play("identify")
-		_apply_item(result.item, 0)
-		if crack:
-			_log("The spine gives. The page reads: %s." % result.item.get("name", "an edition"))
-		else:
 			_log("Collated. The page reads: %s." % result.item.get("name", "an edition"))
+	_apply_item(result.item, 0)
 	pending_folio = {}
+	_log_folio_ui()
 	phase = Phase.RUN
 	folio_closed.emit()
+	if pending_levelups > 0 and run_active:
+		_open_levelup()
+
+
+func _perf_budget() -> void:
+	## FPS dip: cap 200, then throttle far enemies to 30% update. No enemy-vs-enemy blobs.
+	if last_dt > 0.033:
+		perf_stage = mini(3, perf_stage + 1)
+	elif last_dt < 0.020:
+		perf_stage = maxi(0, perf_stage - 1)
+	match perf_stage:
+		0:
+			horde_cap = Catalog.HORDE_CAP
+			far_throttle = false
+		1:
+			horde_cap = Catalog.HORDE_SOFT
+			far_throttle = false
+		_:
+			horde_cap = Catalog.HORDE_SOFT
+			far_throttle = true
+
+
+func _log_folio_ui() -> void:
+	if folio_ui_open_ms <= 0:
+		return
+	var ms := Time.get_ticks_msec() - folio_ui_open_ms
+	folio_ui_samples.append(ms)
+	folio_ui_open_ms = 0
+	var copy: Array = folio_ui_samples.duplicate()
+	copy.sort()
+	var med: int = int(copy[copy.size() / 2])
+	print("folio-ui %d ms  median %d ms  n=%d" % [ms, med, copy.size()])
 
 
 func stamp_next_folio() -> bool:
@@ -784,7 +856,7 @@ func tome_line() -> String:
 	var parts: Array[String] = []
 	for w in weapons:
 		parts.append("%s %d" % [w.name, w.level])
-	return "  ·  ".join(parts) if not parts.is_empty() else "Margin Notes"
+	return "  ·  ".join(parts) if not parts.is_empty() else "Primer"
 
 
 func last_messages(n: int) -> Array:

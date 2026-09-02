@@ -9,7 +9,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=false
 [application]
 
 config/name="Bookish Potato: The First Edition"
-config/description="A library survival. Unidentified editions. Collate or crack the spine."
+config/description="A library bullet heaven on one floor of The Stacks."
 config/version="0.1.0"
 config/tags=PackedStringArray("action", "2d")
 run/main_scene="res://scenes/boot.tscn"

@@ -249,10 +249,10 @@ func _build_levelup(root: Control) -> void:
 	level_panel = Panel.new()
 	level_panel.visible = false
 	level_panel.set_anchors_preset(Control.PRESET_CENTER)
-	level_panel.offset_left = -430
-	level_panel.offset_top = -200
-	level_panel.offset_right = 430
-	level_panel.offset_bottom = 200
+	level_panel.offset_left = -340
+	level_panel.offset_top = -150
+	level_panel.offset_right = 340
+	level_panel.offset_bottom = 150
 	root.add_child(level_panel)
 	var v := VBoxContainer.new()
 	UiKit.fill(v)
@@ -262,8 +262,8 @@ func _build_levelup(root: Control) -> void:
 	v.offset_bottom = -12
 	v.add_theme_constant_override("separation", 8)
 	level_panel.add_child(v)
-	v.add_child(UiKit.lbl("A new edition.", 22, UiKit.GOLD))
-	v.add_child(UiKit.lbl("One click. It slams onto a shelf.  1 / 2 / 3", 13, UiKit.DIM))
+	v.add_child(UiKit.lbl("A new edition.", 20, UiKit.GOLD))
+	v.add_child(UiKit.lbl("One click.  1 / 2 / 3", 12, UiKit.DIM))
 	cards_row = HBoxContainer.new()
 	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	cards_row.add_theme_constant_override("separation", 12)
@@ -281,71 +281,61 @@ func _rebuild_cards() -> void:
 
 func _make_card(index: int, slip: Dictionary) -> Control:
 	var card := Panel.new()
-	card.custom_minimum_size = Vector2(250, 260)
+	card.custom_minimum_size = Vector2(190, 200)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := VBoxContainer.new()
 	UiKit.fill(v)
-	v.offset_left = 10
-	v.offset_right = -10
-	v.offset_top = 8
-	v.offset_bottom = -8
-	v.add_theme_constant_override("separation", 6)
+	v.offset_left = 8
+	v.offset_right = -8
+	v.offset_top = 6
+	v.offset_bottom = -6
+	v.add_theme_constant_override("separation", 4)
 	card.add_child(v)
-	var icons := HBoxContainer.new()
-	v.add_child(icons)
 	var lock := Button.new()
-	lock.text = "shelved" if bool(slip.locked) else "shelve"
+	lock.text = "lock" if not bool(slip.locked) else "locked"
 	lock.toggle_mode = true
 	lock.button_pressed = bool(slip.locked)
-	lock.tooltip_text = "Shelve: keep this card."
-	lock.custom_minimum_size = Vector2(80, 28)
+	lock.tooltip_text = "Keep this card."
+	lock.custom_minimum_size = Vector2(70, 24)
+	lock.mouse_filter = Control.MOUSE_FILTER_STOP
 	lock.pressed.connect(func() -> void:
 		Game.catalogue_toggle_lock(index)
-		_rebuild_cards()
+		var now: Dictionary = Game.catalogue_slips[index]
+		lock.text = "locked" if bool(now.locked) else "lock"
+		lock.button_pressed = bool(now.locked)
 	)
-	icons.add_child(lock)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	icons.add_child(spacer)
-	var stamp := Button.new()
-	stamp.text = "stamp"
-	stamp.tooltip_text = "Reshelve this card (1 page)."
-	stamp.custom_minimum_size = Vector2(80, 28)
-	stamp.disabled = Game.pages < 1 or bool(slip.locked)
-	var idx_stamp := index
-	stamp.pressed.connect(func() -> void:
-		Game.catalogue_reshelve(idx_stamp)
-		_rebuild_cards()
-		_refresh()
-	)
-	icons.add_child(stamp)
-	v.add_child(UiKit.lbl(str(slip.stamp), 12, UiKit.DIM))
-	v.add_child(UiKit.lbl("Unidentified Folio", 18, UiKit.GOLD))
+	v.add_child(lock)
+	v.add_child(UiKit.lbl(str(slip.title), 16, UiKit.GOLD))
 	var art := ColorRect.new()
-	art.custom_minimum_size = Vector2(0, 72)
-	art.color = _shelf_color(str(slip.shelf))
+	art.custom_minimum_size = Vector2(0, 64)
+	art.color = _shelf_color(str(slip.get("pattern", "")))
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(art)
-	v.add_child(UiKit.lbl(str(slip.note), 14, UiKit.PAPER))
-	var take := UiKit.btn("Take  ·  %d" % (index + 1), 210)
-	take.pressed.connect(func() -> void:
-		slam_t = 0.25
-		Game.catalogue_take(index)
+	v.add_child(UiKit.lbl(str(slip.note), 12, UiKit.PAPER))
+	card.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			if lock.get_global_rect().has_point(ev.global_position):
+				return
+			slam_t = 0.2
+			Game.catalogue_take(index)
 	)
-	v.add_child(take)
 	return card
 
 
-func _shelf_color(shelf: String) -> Color:
-	match shelf:
-		"cookery":
+func _shelf_color(pattern: String) -> Color:
+	match pattern:
+		"cookbook":
 			return Color(0.55, 0.22, 0.14)
-		"reference":
-			return Color(0.22, 0.28, 0.48)
-		"maps":
+		"atlas":
 			return Color(0.22, 0.4, 0.26)
-		"accounts":
+		"dictionary":
+			return Color(0.22, 0.28, 0.48)
+		"gazette":
 			return Color(0.45, 0.34, 0.12)
+		"primer":
+			return Color(0.62, 0.52, 0.32)
 		_:
-			return Color(0.28, 0.16, 0.28)
+			return Color(0.32, 0.24, 0.18)
 
 
 func _build_folio(root: Control) -> void:
@@ -449,7 +439,7 @@ func _build_recap(root: Control) -> void:
 	v.add_child(UiKit.lbl("Closed Stack", 24, UiKit.GOLD))
 	recap_body = UiKit.lbl("", 15, UiKit.PAPER)
 	v.add_child(recap_body)
-	v.add_child(UiKit.lbl("Returns Desk  ·  pages buy unidentified folios for the next run. Nothing is for sale.", 13, UiKit.DIM))
+	v.add_child(UiKit.lbl("Returns Desk  ·  acquire unidentified folios for the next run. Stamp with pages. Nothing is for sale.", 13, UiKit.DIM))
 	desk_box = VBoxContainer.new()
 	v.add_child(desk_box)
 	var b := UiKit.btn("Return to Menu")
@@ -462,11 +452,15 @@ func _build_recap(root: Control) -> void:
 func _rebuild_desk() -> void:
 	for c in desk_box.get_children():
 		c.queue_free()
-	desk_box.add_child(UiKit.lbl("Pages in the bank: %d   ·   stamped for next run: %d/%d" % [
-		Persist.bank_pages, Persist.next_folios.size(), Catalog.NEXT_FOLIO_CAP
-	], 14, UiKit.PAPER))
-	var buy := UiKit.btn("Stamp a folio  ·  %d pages" % Catalog.FOLIO_COST, 320)
-	buy.disabled = Persist.bank_pages < Catalog.FOLIO_COST or Persist.next_folios.size() >= Catalog.NEXT_FOLIO_CAP
+	var n := Persist.next_folios.size()
+	desk_box.add_child(UiKit.lbl("Pages: %d" % Persist.bank_pages, 14, UiKit.PAPER))
+	for i in Catalog.NEXT_FOLIO_CAP:
+		if i < n:
+			desk_box.add_child(UiKit.lbl("Stamped folio %d  ·  \"%s\"" % [i + 1, Persist.next_folios[i].get("tell", "")], 13, UiKit.DIM))
+		else:
+			desk_box.add_child(UiKit.lbl("Empty stamp %d" % (i + 1), 13, UiKit.DIM))
+	var buy := UiKit.btn("Acquire / stamp  ·  %d pages" % Catalog.FOLIO_COST, 320)
+	buy.disabled = Persist.bank_pages < Catalog.FOLIO_COST or n >= Catalog.NEXT_FOLIO_CAP
 	buy.pressed.connect(func() -> void:
 		Game.stamp_next_folio()
 		_rebuild_desk()
@@ -510,9 +504,8 @@ func _on_recap() -> void:
 	folio_panel.visible = false
 	var e: Dictionary = Game.recap()
 	var title := "You closed the hour." if Game.won else "You were overdue."
-	recap_body.text = "%s\n\n%s\nTime survived: %s\nLevel: %s\nKills: %s\nGold: %s    Pages this run: %s\nTomes: %s\nSpines cracked: %s  (strong editions %s)\nBest folio recovered: %s\nWorst misfile: %s\n\nLocal graveyard only." % [
-		title, e.cause, e.time, e.level, e.kills, e.gold, e.pages, e.tomes,
-		e.get("cracks", 0), e.get("crack_strong", 0), e.biggest_find, e.worst_misfile
+	recap_body.text = "%s\n\n%s\nTime survived: %s\nLevel: %s\nKills: %s\nPages this run: %s\nTomes: %s\nBest folio: %s\n\nLocal graveyard only." % [
+		title, e.cause, e.time, e.level, e.kills, e.pages, e.tomes, e.biggest_find
 	]
 	_rebuild_desk()
 	recap_panel.visible = true

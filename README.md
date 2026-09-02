@@ -1,12 +1,12 @@
 # Bookish Potato: The First Edition
 
-Searchable name: **Bookish Potato**. Window title, project name, and menus use **Bookish Potato: The First Edition**.
+Window title, project name, and menus use **Bookish Potato: The First Edition**. The potato is the sprite you steer, not the marketing noun.
 
-v0.1 is a short **bullet-heaven / survivor-like** for desktop: one library floor, WASD, tomes that auto-fire, a timed horde of booklice. The library is the stage. The potato is the protagonist, not the marketing gag. This is not a deckbuilder and not a dungeon crawler.
+v0.1 is a short **bullet heaven** for desktop: one library floor (The Stacks), WASD, tomes that auto-fire, a timed horde of overdue patrons. This is not a deckbuilder and not a dungeon crawler.
 
 **This game does not contain any real-world currency gambling or microtransactions.** There is no real-money purchase of gold, pages, or folios, no item trading, no marketplace, and no cash-out.
 
-Suggested Steam tags: **Bullet Heaven**, **Action Roguelike**, **Roguelite**, **Survival**, **2D**. Do not lead with Bullet Hell. Do not tag Gambling, Casino, Cute, or Meme.
+Suggested Steam tags, in order: **Bullet Heaven**, Action Roguelike, Roguelite, Survival, 2D. Do not lead with Bullet Hell. Do not tag Gambling, Casino, Cute, or Meme.
 
 Price intent (not a store listing): **$5.99 / £4.99**.
 
@@ -14,7 +14,7 @@ Before a public Steam store page: complete the IARC/Steam content survey (German
 
 ## How to run (Godot editor)
 
-1. Install **Godot 4.7.x** (developed on **4.7.2** stable). Compatibility (GL) renderer is selected for broad Windows hardware.
+1. Install **Godot 4.7.x** (developed on **4.7.2** stable). Compatibility (GL) renderer.
 2. Open the folder that contains `project.godot`.
 3. Press Play. Main scene: `scenes/boot.tscn`.
 
@@ -46,35 +46,30 @@ Presets in `export_presets.cfg`:
 godot --headless --path . --export-release "Windows Desktop" build/windows/BookishPotato.exe
 ```
 
-Primary target is **Windows**. Desktop only, not HTML5. Do not commit binaries.
+Primary target is **Windows**. Desktop only. Do not commit binaries.
 
 ## Controls
 
 | Action | Keys |
 | --- | --- |
 | Move | WASD or arrows (facing follows movement) |
-| Fire | Automatic — equipped tomes |
+| Fire | Automatic — Primer fires on spawn |
 | Level-up | Click a folio card, or `1` / `2` / `3` |
-| Floor folio | **Collate** (safe) or **Crack** (swingy) |
+| Floor folio | **Collate** (safe) or **Crack** (swingy; book opens) |
 | Pause | `Esc` |
 
-Settings live in `user://settings.cfg`. Graveyard: `user://graveyard.json`. Banked pages and next-run folios: `user://meta.cfg`.
+Settings: `user://settings.cfg`. Graveyard: `user://graveyard.json`. Pages and next-run folios: `user://meta.cfg`.
 
 ## How to play (v0.1)
 
-- **One floor.** Shelves are lanes and cover. Survive the hour (~12 minutes). Closing time is a brood surge.
+- **The Stacks.** One floor. Shelves are lanes. Survive the hour (~12 minutes). Closing Time brings the Fine Collector.
 - **Permadeath of the run.** No mid-run save.
-- **Level-up** pauses the world. Three unidentified folio cards. One click slams a tome onto the shelf. **Shelve** / **stamp** are toggles on the card, not a filing minigame.
-- **Floor folios:** Collate or Crack. The book opens (cover, crack, page flutter). Collate is always available.
-- **Returns Desk** is after the run only. Pages buy unidentified folios for the **next** run. Sells nothing. No wave shop.
-- **Six tomes** on the lectern at most. Ten folio identities in the whole slice.
-- **Gold** and **pages** are in-run. Pages bank between runs only to stamp next-run folios.
+- **Five tomes:** Primer (start), Cookbook (aura), Atlas (orbiting open folios), Dictionary (letter-ripple; not first offer), Gazette (spread + knockback).
+- **Level-up** pauses. Three folio cards. One click. Lock is a toggle on the card. No errata, no misfile, no Dictionary or passive on the first offer.
+- **Floor folios:** Collate or Crack. Crack's sting always includes extra pages and a rarer folio.
+- **Returns Desk** after the run only. Acquire unidentified folios. Stamp with **pages**. Nothing is for sale. At most three stamps.
 
-## Steamworks later
-
-Nothing Steam-specific is implemented. `SteamGate` (`scripts/autoload/steam_gate.gd`) no-ops while `APP_ID` is 0.
-
-Still to do: Steamworks partner account, $100 Steam Direct fee, App ID, GodotSteam overlay/achievements, depots, store capsules/screenshots/trailer. Cloud only for graveyard/settings/meta — never a mid-run save.
+`SteamGate` no-ops while `APP_ID` is 0.
 
 ## License
 

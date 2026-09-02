@@ -37,7 +37,7 @@ func _build() -> void:
 	sub.size = Vector2(1000, 28)
 	add_child(sub)
 
-	var tag := UiKit.lbl("Real-time hordes. Tomes fire themselves. Unidentified editions. Collate or crack the spine.", 15, UiKit.DIM)
+	var tag := UiKit.lbl("The Stacks. Tomes fire themselves. Overdue patrons. Collate or crack a folio.", 15, UiKit.DIM)
 	tag.position = Vector2(80, 122)
 	tag.size = Vector2(1100, 28)
 	add_child(tag)
@@ -83,7 +83,7 @@ func _build() -> void:
 	for b in [b_new, b_how, b_set, b_gr, b_quit]:
 		col.add_child(b)
 
-	var flavor := UiKit.lbl("One floor of stacks. Survive the hour. Level-up is three unread folios — one click shelves a tome.\n\nThis game does not contain any real-world currency gambling or microtransactions.", 15, UiKit.PAPER)
+	var flavor := UiKit.lbl("One floor: The Stacks. Survive the hour. Level-up is three folio cards — one click.\n\nThis game does not contain any real-world currency gambling or microtransactions.", 15, UiKit.PAPER)
 	flavor.position = Vector2(80, 500)
 	flavor.size = Vector2(720, 160)
 	add_child(flavor)

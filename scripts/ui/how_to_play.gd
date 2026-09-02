@@ -1,84 +1,59 @@
 extends Control
 
-const TEXT := """BOOKISH POTATO: THE FIRST EDITION
-v0.1. Real-time survival in one library floor. You are a potato who reads. The stacks are the stage. Tomes fire themselves.
+const TEXT := """Bookish Potato: The First Edition
+A 2D bullet heaven on one floor of The Stacks.
 
-This game does not contain any real-world currency gambling or microtransactions.
+You are a potato sprite with a library card. Move with WASD. Primer fires itself from the first second — flying index cards, no extra button. XP from overdue patrons fills the bar. Three identified folio cards. One click. The floor pauses.
 
-THE HOUR
-Survive about twelve minutes. Booklice thicken as the clock runs. Closing time is a brood surge. Death ends the run. There is no mid-run save.
+Five tomes
+• Primer — start. Auto-fire on spawn. Flying index cards with a paper trail.
+• Cookbook — close aura. Steam and recipe-page glow.
+• Atlas — orbiting open folios with a page-flutter trail.
+• Dictionary — slow letter-ripple pulse. Never the first offer.
+• Gazette — spread clippings that shove.
 
-MOVE AND FIRE
-WASD or arrows. Facing follows movement. Equipped tomes auto-fire. No dodge-roll. No manual aim.
+The first folio draw is Cookbook or Atlas. Dictionary and passives wait. Errata and Misfile never sit on that row.
 
-LEAVES
-Fallen pages are experience. Walk over them. A Silk Bookmark (if you find one) draws them in.
+Passives (later levels): Bookplate magnet, Colophon pages of HP, Dust jacket armor, Overdue stamp speed.
 
-LEVEL-UP
-The world pauses. Three unidentified folio cards. One click shelves a tome. Optional: shelve (keep a card) or stamp (reshelve, 1 page) as icons on the card — not a second screen.
+Floor pickups
+Collate — always available. Identified folio. No tax.
+Crack — optional. Identified folio plus extra pages, with a small HP sting. The book opens. No reel.
 
-FLOOR FOLIOS
-Chests of unread books. Collate (safe, modest) or Crack the spine (swingy). The book opens: cover, crack, page flutter. Collate is always available.
+Returns Desk
+After the run. Unidentified folios. Pages. Stamp to acquire. No sell, no reroll, no retrieve.
 
-RETURNS DESK
-After the run only. Pages buy unidentified folios for the NEXT run. Sells nothing. No shop between waves.
+Closing Time brings the Fine Collector. Survive until The Stacks close.
 
-TOMES (six on the lectern at most)
-  Margin Notes — paper darts the way you walk.
-  Charred Cookbook — grease-fire cone.
-  Pocket Dictionary — defining pulse, slows.
-  Pocket Atlas — orbiting pages.
-  Hymnal of Errata — wide knockback.
-  Ledger of Debts — seeking entries.
-Courtesies: Silk Bookmark, Cloth Cover, Iron Clasps. Misfile: Cursed Errata.
-
-CONTROLS
-  Move: WASD or arrows
-  Level-up: click a card, or 1 / 2 / 3
-  Pause: Esc
-"""
-
+This game does not contain any real-world currency gambling or microtransactions."""
 
 func _ready() -> void:
-	UiKit.ensure_input()
-	UiKit.apply_theme(self)
-	UiKit.fill(self)
 	var bg := ColorRect.new()
-	bg.color = UiKit.BG
-	UiKit.fill(bg)
+	bg.set_anchors_preset(PRESET_FULL_RECT)
+	bg.color = Color(0.09, 0.07, 0.05)
 	add_child(bg)
-
-	var panel := Panel.new()
-	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.offset_left = 48
-	panel.offset_top = 36
-	panel.offset_right = -48
-	panel.offset_bottom = -36
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(PRESET_FULL_RECT)
+	panel.add_theme_constant_override("margin_left", 56)
+	panel.add_theme_constant_override("margin_right", 56)
+	panel.add_theme_constant_override("margin_top", 40)
+	panel.add_theme_constant_override("margin_bottom", 40)
 	add_child(panel)
-
 	var v := VBoxContainer.new()
-	UiKit.fill(v)
-	v.offset_left = 20
-	v.offset_top = 16
-	v.offset_right = -20
-	v.offset_bottom = -16
+	v.add_theme_constant_override("separation", 12)
 	panel.add_child(v)
-
-	var top := HBoxContainer.new()
-	v.add_child(top)
-	top.add_child(UiKit.lbl("How to Play", 28, UiKit.GOLD))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(spacer)
-	var back := UiKit.btn("Back", 140)
-	back.pressed.connect(func() -> void:
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-	)
-	top.add_child(back)
-
+	var title := Label.new()
+	title.text = "How to play"
+	title.add_theme_font_size_override("font_size", 28)
+	v.add_child(title)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
-	var body := UiKit.lbl(TEXT, 16, UiKit.PAPER)
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var body := Label.new()
+	body.text = TEXT
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	scroll.add_child(body)
+	var back := Button.new()
+	back.text = "Back"
+	back.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	v.add_child(back)
