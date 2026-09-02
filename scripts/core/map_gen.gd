@@ -90,17 +90,7 @@ static func generate(rng: RandomNumberGenerator, depth: int) -> Dictionary:
 	if not _reachable(tiles, px, py, sx, sy):
 		_carve_line(tiles, px, py, sx, sy)
 
-	var stack_room: Dictionary = {}
-	var want_stack := (depth % 3 == 0) or rng.randf() < 0.38
-	if want_stack and rooms.size() >= 3:
-		for r in rooms:
-			if r == start or r == stairs_room:
-				continue
-			stack_room = r
-			break
-		if not stack_room.is_empty():
-			_paint_stack(tiles, rng, stack_room)
-
+	# v0.1: no on-floor shop. The Returns Desk is between floors only.
 	var walk := _walkable_list(tiles)
 	return {
 		"tiles": tiles,
@@ -108,7 +98,6 @@ static func generate(rng: RandomNumberGenerator, depth: int) -> Dictionary:
 		"rooms": rooms,
 		"start": Vector2i(px, py),
 		"stairs": Vector2i(sx, sy),
-		"stack_room": stack_room,
 		"walkable": walk,
 	}
 

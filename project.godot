@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Bookish Potatoe — Godot 4.7 desktop crawler
+; Bookish Potato: The First Edition — Godot 4.7 desktop crawler
 config_version=5
 
 [animation]
@@ -8,8 +8,8 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=false
 
 [application]
 
-config/name="Bookish Potatoe"
-config/description="A bookish potato crawls a gambling library. Classic turn-based roguelike for desktop."
+config/name="Bookish Potato: The First Edition"
+config/description="A turn-based dungeon crawler. Unidentified editions. Collate or crack the spine."
 config/version="0.1.0"
 config/tags=PackedStringArray("roguelike", "2d")
 run/main_scene="res://scenes/boot.tscn"

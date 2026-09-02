@@ -21,7 +21,7 @@ var run_active := false
 var seed_used := 0
 var depth := 1
 var turn := 0
-var hunger_acc := 0
+var wax_acc := 0
 
 var tiles: Array = []
 var variant: Array = []
@@ -37,12 +37,12 @@ var next_id := 1
 
 var gold := 0
 var pages := 0
-var appetite := 90
-var appetite_max := 100
+var candle := 90
+var candle_max := 100
 var inventory: Array = []
 var equipped_tome: Dictionary = {}
 var equipped_binding: Dictionary = {}
-var has_first_edition := false
+var has_notable := false
 
 var messages: Array[String] = []
 var kills := 0
@@ -50,11 +50,14 @@ var cause := ""
 var won := false
 var biggest_win := {"desc": "none", "value": 0}
 var biggest_loss := {"desc": "none", "value": 0}
-var gambles := 0
-var gamble_wins := 0
+var cracks := 0
+var crack_wins := 0
+var curse_streak := 0
 var miss_turns := 0
-var between_stack := false
-var shop_stock: Array = []
+var between_desk := false
+var catalogue_slips: Array = []
+var catalogue_shelf := ""
+var last_identify := {}
 var look_name := ""
 
 
@@ -70,16 +73,20 @@ func new_run(p_seed: int = 0) -> void:
 	cause = ""
 	depth = 1
 	turn = 0
-	hunger_acc = 0
+	wax_acc = 0
 	gold = 12
 	pages = 4
-	appetite = 90
+	candle = 90
 	kills = 0
-	gambles = 0
-	gamble_wins = 0
+	cracks = 0
+	crack_wins = 0
+	curse_streak = 0
 	miss_turns = 0
-	has_first_edition = false
-	between_stack = false
+	has_notable = false
+	between_desk = false
+	catalogue_slips.clear()
+	catalogue_shelf = ""
+	last_identify = {}
 	biggest_win = {"desc": "none", "value": 0}
 	biggest_loss = {"desc": "none", "value": 0}
 	messages.clear()
@@ -101,7 +108,7 @@ func new_run(p_seed: int = 0) -> void:
 		"hp_max": 24,
 		"sprite": 0,
 	}
-	_log("You tuck Margin Notes under one arm and descend. The stacks smell of dust and odds.")
+	_log("You tuck Margin Notes under one arm and descend. The stacks smell of dust and wax.")
 	_make_floor()
 	phase = Phase.DUNGEON
 	floor_changed.emit()
@@ -135,7 +142,7 @@ func _make_floor() -> void:
 	_populate()
 	_recompute_fov()
 	if depth == 1:
-		_log("Chapter 1. The lantern-lit stacks open around you.")
+		_log("Chapter 1. A short lantern, a shorter floorplan.")
 	else:
 		_log("Chapter %d. A new floor of the stacks." % depth)
 
@@ -161,9 +168,7 @@ func _populate() -> void:
 			spots.append(p)
 	_shuffle(spots)
 	var ei := 0
-	var enemy_n := 4 + depth + rng.randi_range(0, 2)
-	if depth >= 8:
-		enemy_n += 2
+	var enemy_n := 4 + depth + rng.randi_range(0, 1)
 	for _i in enemy_n:
 		if ei >= spots.size():
 			break
@@ -192,19 +197,19 @@ func _populate() -> void:
 		elif roll < 0.48:
 			it = {"kind": "pages_pile", "name": "Loose Pages", "amount": rng.randi_range(1, 3), "sprite": 15}
 		elif roll < 0.72:
-			it = Catalog.unidentified()
+			it = Catalog.unidentified(rng)
 			_stamp_uid(it)
 		else:
 			it = Catalog.random_identified_loot(rng, depth, false)
 			if it.kind == "unid":
-				it = Catalog.unidentified()
+				it = Catalog.unidentified(rng)
 			_stamp_uid(it)
 		_drop_at(lp, it)
 
 	if depth >= Catalog.DEPTHS:
-		_drop_at(stairs_pos, Catalog.first_edition())
+		_drop_at(stairs_pos, Catalog.notable_folio())
 		_stamp_uid(_top_item(stairs_pos))
-		_log("The First Edition waits on a lectern of cold stone.")
+		_log("A lectern holds the Notable Folio. Take it and leave by the Binding Exit.")
 
 
 func _walkable() -> Array:
@@ -318,7 +323,7 @@ func try_move(dx: int, dy: int) -> bool:
 		_spend_turn()
 		return true
 	if t == T.DESK:
-		_open_stack(false)
+		_log("A dusty counter. The Returns Desk is between floors.")
 		return false
 	var other := entity_at(nx, ny)
 	if not other.is_empty() and not other.get("is_player", false):
@@ -334,10 +339,10 @@ func try_move(dx: int, dy: int) -> bool:
 	if t == T.EXIT:
 		player.x = nx
 		player.y = ny
-		if has_first_edition:
+		if has_notable:
 			_win()
 			return true
-		_log("A sealed binding-arch. It wants the First Edition.")
+		_log("A sealed binding-arch. It wants the Notable Folio.")
 		_spend_turn()
 		return true
 	if not Catalog.tile_walkable(t):
@@ -364,7 +369,7 @@ func use_stairs() -> bool:
 	if t == T.STAIRS_D:
 		_descend()
 		return true
-	if t == T.EXIT and has_first_edition:
+	if t == T.EXIT and has_notable:
 		_win()
 		return true
 	_log("No stair, no exit. Just floor.")
@@ -373,15 +378,15 @@ func use_stairs() -> bool:
 
 func _descend() -> void:
 	if depth >= Catalog.DEPTHS:
-		_log("There is no further chapter. Recover the First Edition and leave.")
+		_log("This slice of the stacks ends here. Recover the Notable Folio and leave.")
 		return
 	AudioMgr.play("stairs")
-	_resolve_bets_floor_left()
 	depth += 1
-	between_stack = (depth == 3 or depth == 5 or depth == 7 or depth == 9 or rng.randf() < 0.22)
-	if between_stack:
-		_log("Between chapters, the house opens a felt room.")
-		_open_stack(true)
+	# v0.1: Returns Desk between floors 2→3 and 4→5 only. Buys unidentified; sells nothing.
+	between_desk = (depth == 3 or depth == 5)
+	if between_desk:
+		_log("Between chapters: a Returns Desk. They take unidentified folios for pages. Nothing is for sale.")
+		_open_returns()
 	else:
 		_make_floor()
 		floor_changed.emit()
@@ -392,169 +397,166 @@ func continue_from_stack() -> void:
 	if not run_active:
 		return
 	phase = Phase.DUNGEON
-	if between_stack:
-		between_stack = false
+	if between_desk:
+		between_desk = false
+		catalogue_slips.clear()
+		catalogue_shelf = ""
 		_make_floor()
 		floor_changed.emit()
 	stack_closed.emit()
 	turn_done.emit()
 
 
-func _open_stack(is_between: bool) -> void:
-	between_stack = is_between
+func _open_returns() -> void:
+	between_desk = true
 	phase = Phase.STACK
-	_restock_shop()
-	if is_between:
-		_log("The Stack: a bookie-librarian nods at the felt.")
-	else:
-		_log("A felt-table nook. The bookie does not look up from a racing form bound in calfskin.")
+	catalogue_slips.clear()
+	catalogue_shelf = ""
 	AudioMgr.play("page")
 	stack_opened.emit()
 
 
-func _restock_shop() -> void:
-	shop_stock.clear()
-	for _i in 5:
-		var it: Dictionary = Catalog.unidentified() if rng.randf() < 0.55 else Catalog.random_identified_loot(rng, depth, rng.randf() < 0.25)
-		if it.kind == "unid":
-			it = Catalog.unidentified()
-		_stamp_uid(it)
-		it.price = 12 + depth * 3 + rng.randi_range(0, 10)
-		if it.kind == "unid":
-			it.price = 16 + depth * 2
-		shop_stock.append(it)
-
-
-func shop_buy(index: int) -> void:
-	if phase != Phase.STACK:
-		return
-	if index < 0 or index >= shop_stock.size():
-		return
-	var it: Dictionary = shop_stock[index]
-	var price := int(it.get("price", 15))
-	if gold < price:
-		_log("The bookie waits. You cannot afford the folio.")
-		return
-	if inventory.size() >= Catalog.INV_CAP:
-		_log("Your satchel is a closed stack.")
-		return
-	gold -= price
-	shop_stock.remove_at(index)
-	it.erase("price")
-	inventory.append(it)
-	_log("Bought %s for %d gold." % [it.name, price])
-	AudioMgr.play("pickup")
-	turn_done.emit()
-
-
-func shop_sell(inv_index: int) -> void:
+func return_folio(inv_index: int) -> void:
+	## Returns Desk buys unidentified folios for pages. Sells nothing.
 	if phase != Phase.STACK:
 		return
 	if inv_index < 0 or inv_index >= inventory.size():
 		return
 	var it: Dictionary = inventory[inv_index]
-	if it.kind == "first":
-		_log("The bookie goes pale. 'That is not for the house.'")
+	if str(it.kind) != "unid":
+		_log("They only take unidentified folios.")
 		return
-	var price := maxi(1, int(it.get("value_gold", 5)) / 2)
-	if not bool(it.get("identified", true)):
-		price = 6
-	gold += price
+	var pay := 2
+	match str(it.get("quality", "mixed")):
+		"promising":
+			pay = 3
+		"sour":
+			pay = 1
 	inventory.remove_at(inv_index)
-	_log("Sold %s for %d gold." % [it.name, price])
-	AudioMgr.play("pickup")
+	pages += pay
+	_log("Returned %s. The desk pays %d pages." % [it.name, pay])
+	AudioMgr.play("page")
 	turn_done.emit()
 
 
-func play_slots(bet_pages: bool, stake: int) -> Dictionary:
+func unid_inv_indices() -> Array:
+	var out: Array = []
+	for i in inventory.size():
+		if str(inventory[i].kind) == "unid":
+			out.append(i)
+	return out
+
+
+func catalogue_choose_shelf(shelf_id: String) -> void:
 	if phase != Phase.STACK:
-		return {}
-	stake = maxi(1, stake)
-	if bet_pages:
-		if pages < stake:
-			_log("Not enough pages to feed the reels.")
-			return {}
-		pages -= stake
-	else:
-		if gold < stake:
-			_log("Not enough gold to feed the reels.")
-			return {}
-		gold -= stake
-	gambles += 1
-	AudioMgr.play("slot")
-	var spin: Dictionary = Slots.spin(rng, depth)
-	# Scale payout by stake vs base 5 gold / 2 pages
-	var scale := float(stake) / (2.0 if bet_pages else 5.0)
-	spin.gold = int(round(float(spin.gold) * scale))
-	spin.pages = int(round(float(spin.pages) * scale))
-	if spin.gold > 0:
-		gold += int(spin.gold)
-	if spin.pages > 0:
-		pages += int(spin.pages)
-	if not (spin.item as Dictionary).is_empty():
-		var it: Dictionary = spin.item
-		_stamp_uid(it)
-		if inventory.size() < Catalog.INV_CAP:
-			inventory.append(it)
-		else:
-			_drop_at(Vector2i(player.x, player.y), it)
-			_log("No room in the satchel. The prize falls at your feet.")
-	if int(spin.curse_hp) > 0:
-		player.hp -= int(spin.curse_hp)
-		AudioMgr.play("curse")
-		if player.hp <= 0:
-			cause = "lost a Chapter Slots argument"
-			_end(false)
-			return spin
-	var net := int(spin.value) - (stake if not bet_pages else stake * 4)
-	if bet_pages:
-		net = int(spin.pages) * 4 + int(spin.gold) - stake * 4
-	_track_gamble(net, "Chapter Slots (%s/%s/%s)" % [spin.title, spin.chapter, spin.note])
-	if net > 0:
-		gamble_wins += 1
-	_log("Reels: %s · %s · %s. %s" % [spin.title, spin.chapter, spin.note, spin.flavor])
+		return
+	catalogue_shelf = shelf_id
+	catalogue_slips = CatalogueDraw.draw_three(rng, depth, shelf_id)
+	_log("You take three slips from the %s shelf." % CatalogueDraw.shelf_name(shelf_id))
+	AudioMgr.play("page")
 	turn_done.emit()
-	return spin
 
 
-func _track_gamble(net: int, desc: String) -> void:
+func catalogue_lock(index: int) -> void:
+	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+		return
+	var slip: Dictionary = catalogue_slips[index]
+	if bool(slip.get("locked", false)):
+		return
+	if pages < 1:
+		_log("No spare pages to lock a slip.")
+		return
+	pages -= 1
+	slip.locked = true
+	catalogue_slips[index] = slip
+	_log("Locked: %s." % slip.title)
+	AudioMgr.play("page")
+	turn_done.emit()
+
+
+func catalogue_redraw(index: int) -> void:
+	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+		return
+	var slip: Dictionary = catalogue_slips[index]
+	if bool(slip.get("locked", false)):
+		_log("That slip is locked.")
+		return
+	if pages < 1:
+		_log("No spare pages to recatalogue a slip.")
+		return
+	pages -= 1
+	catalogue_slips[index] = CatalogueDraw.draw_slip(rng, depth, catalogue_shelf)
+	_log("Recatalogued. New slip: %s." % catalogue_slips[index].title)
+	AudioMgr.play("page")
+	turn_done.emit()
+
+
+func catalogue_take(index: int) -> void:
+	if phase != Phase.STACK or index < 0 or index >= catalogue_slips.size():
+		return
+	var slip: Dictionary = catalogue_slips[index]
+	_apply_slip(slip)
+	catalogue_slips.clear()
+	catalogue_shelf = ""
+	turn_done.emit()
+
+
+func _apply_slip(slip: Dictionary) -> void:
+	var net := int(slip.get("value", 0))
+	match str(slip.kind):
+		"gold":
+			gold += int(slip.gold)
+			_log("%s. +%d gold." % [slip.note, int(slip.gold)])
+		"pages":
+			pages += int(slip.pages)
+			_log("%s. +%d pages." % [slip.note, int(slip.pages)])
+		"wax":
+			candle = mini(candle_max, candle + int(slip.wax))
+			_log("%s. Candle +%d." % [slip.note, int(slip.wax)])
+		"misfile":
+			player.hp -= int(slip.curse_hp)
+			if not (slip.item as Dictionary).is_empty():
+				var it: Dictionary = slip.item
+				_stamp_uid(it)
+				if inventory.size() < Catalog.INV_CAP:
+					inventory.append(it)
+			_log("%s (−%d HP)." % [slip.note, int(slip.curse_hp)])
+			AudioMgr.play("curse")
+			_track_chance(net, "Misfile: %s" % slip.title)
+			if player.hp <= 0:
+				cause = "a misfiled slip"
+				_end(false)
+			return
+		"item":
+			var it2: Dictionary = slip.item
+			_stamp_uid(it2)
+			if inventory.size() < Catalog.INV_CAP:
+				inventory.append(it2)
+			else:
+				_drop_at(Vector2i(player.x, player.y), it2)
+				_log("Satchel full. The slip waits on the floor.")
+			_log("%s You take %s." % [slip.note, it2.name])
+			AudioMgr.play("pickup")
+		_:
+			_log(str(slip.note))
+	_track_chance(net, "Catalogue: %s" % slip.title)
+	if net > 0:
+		crack_wins += 1
+
+
+func _track_chance(net: int, desc: String) -> void:
 	if net > int(biggest_win.value):
 		biggest_win = {"desc": desc, "value": net}
 	if net < int(biggest_loss.value):
 		biggest_loss = {"desc": desc, "value": net}
 
 
-func can_blurb(target: Dictionary) -> bool:
-	if target.is_empty() or target.get("is_player", false):
-		return false
-	if int(target.get("bet_stake", 0)) > 0:
-		return false
-	return chebyshev(player.x, player.y, target.x, target.y) == 1
+func can_blurb(_target: Dictionary) -> bool:
+	return false
 
 
-func place_blurb_bet(target_id: int, stake: int) -> bool:
-	if not run_active or phase != Phase.DUNGEON:
-		return false
-	stake = clampi(stake, 1, 9)
-	if pages < stake:
-		_log("You haven't the pages to stake.")
-		return false
-	var target := {}
-	for e in entities:
-		if int(e.id) == target_id:
-			target = e
-			break
-	if not can_blurb(target):
-		_log("No adjacent unmarked foe to quote.")
-		return false
-	pages -= stake
-	gambles += 1
-	target.bet_stake = stake
-	target.bet_odds = float(target.odds)
-	_log("You stake %d pages on the blurb: \"%s\"  (%.1f : 1)" % [stake, target.blurb, target.odds])
-	AudioMgr.play("page")
-	turn_done.emit()
-	return true
+func place_blurb_bet(_target_id: int, _stake: int) -> bool:
+	return false
 
 
 func adjacent_enemies() -> Array:
@@ -583,8 +585,8 @@ func _auto_pickup() -> void:
 			AudioMgr.play("page")
 		elif it.get("kind", "") == "first":
 			inventory.append(it)
-			has_first_edition = true
-			_log("The First Edition is in your hands. A Binding Exit unseals in the first chamber.")
+			has_notable = true
+			_log("The Notable Folio is in your hands. A Binding Exit unseals in the first chamber.")
 			AudioMgr.play("identify")
 			tiles[start_pos.y][start_pos.x] = T.EXIT
 		else:
@@ -655,7 +657,7 @@ func use_item(index: int) -> void:
 	match str(it.kind):
 		"potion":
 			player.hp = mini(int(player.hp_max), int(player.hp) + int(it.get("heal", 0)))
-			appetite = mini(appetite_max, appetite + int(it.get("food", 0)))
+			candle = mini(candle_max, candle + int(it.get("wax", it.get("food", 0))))
 			_log("You drink %s." % it.name)
 			inventory.remove_at(index)
 			AudioMgr.play("potion")
@@ -667,9 +669,9 @@ func use_item(index: int) -> void:
 			inventory.remove_at(index)
 			_do_scroll(str(it.effect), it.name)
 		"unid":
-			_log("Choose Carefully Read, or Gamble-Read.")
+			_log("Choose Collate (safe) or Crack the spine (risk).")
 		"first":
-			_log("It is already doing the only job that matters.")
+			_log("It is already doing the only job this slice requires.")
 		"tome", "binding":
 			equip_item(index)
 		_:
@@ -711,18 +713,27 @@ func _do_scroll(effect: String, item_name: String) -> void:
 
 
 func carefully_read(index: int) -> void:
+	collate(index)
+
+
+func gamble_read(index: int) -> void:
+	crack_spine(index)
+
+
+func collate(index: int) -> void:
 	if index < 0 or index >= inventory.size():
 		return
 	var it: Dictionary = inventory[index]
 	if str(it.kind) != "unid":
 		_log("Already known.")
 		return
-	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, false)
+	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, false, str(it.get("quality", "mixed")), false)
 	var neu: Dictionary = res.item
 	_stamp_uid(neu)
 	inventory[index] = neu
-	appetite = maxi(0, appetite - 2)
-	_log("You read carefully. It is %s." % neu.name)
+	candle = maxi(0, candle - 2)
+	last_identify = {"kind": "collate", "name": neu.name, "tell": it.get("tell", ""), "outcome": "identified"}
+	_log("Collated. The tell was right enough: it is %s." % neu.name)
 	AudioMgr.play("identify")
 	if phase == Phase.DUNGEON:
 		_spend_turn()
@@ -730,25 +741,29 @@ func carefully_read(index: int) -> void:
 		turn_done.emit()
 
 
-func gamble_read(index: int) -> void:
+func crack_spine(index: int) -> void:
 	if index < 0 or index >= inventory.size():
 		return
 	var it: Dictionary = inventory[index]
 	if str(it.kind) != "unid":
 		_log("Already known.")
 		return
-	gambles += 1
-	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, true)
+	cracks += 1
+	var block := curse_streak >= Catalog.PITY_CURSES
+	var res: Dictionary = Catalog.resolve_unidentified(rng, depth, true, str(it.get("quality", "mixed")), block)
 	var neu: Dictionary = res.item
 	_stamp_uid(neu)
 	inventory[index] = neu
 	pages += int(res.extra_pages)
-	if int(res.extra_pages) < 0:
-		pages = maxi(0, pages)
-	match str(res.outcome):
-		"boom":
-			gamble_wins += 1
-			_log("Gamble-Read bursts: %s! Pages scatter." % neu.name)
+	if pages < 0:
+		pages = 0
+	var outcome := str(res.outcome)
+	last_identify = {"kind": "crack", "name": neu.name, "tell": it.get("tell", ""), "outcome": outcome, "pity": block}
+	match outcome:
+		"flare":
+			crack_wins += 1
+			curse_streak = 0
+			_log("The spine gives. %s. Nearby ink flares." % neu.name)
 			AudioMgr.play("boom")
 			for e in entities:
 				if int(e.hp) <= 0:
@@ -756,22 +771,24 @@ func gamble_read(index: int) -> void:
 				if chebyshev(player.x, player.y, e.x, e.y) <= 2:
 					e.hp -= 4 + depth
 					if int(e.hp) <= 0:
-						_kill(e, "a lucky folio")
-			_track_gamble(12 + int(res.extra_pages) * 4, "Gamble-Read boom (%s)" % neu.name)
+						_kill(e, "a cracked spine")
+			_track_chance(12 + int(res.extra_pages) * 4, "Crack flare (%s)" % neu.name)
 		"curse":
+			curse_streak += 1
 			player.hp -= int(res.curse_hp)
-			_log("Gamble-Read sours. %s. The blast smells of burnt glue." % neu.name)
+			_log("Misfile. %s. Glue-smoke (−%d HP). Pity %d/%d." % [neu.name, int(res.curse_hp), curse_streak, Catalog.PITY_CURSES])
 			AudioMgr.play("curse")
-			_track_gamble(-8 - int(res.curse_hp), "Gamble-Read curse")
+			_track_chance(-8 - int(res.curse_hp), "Crack misfile")
 			if player.hp <= 0:
-				cause = "a folio that objected to being gambled"
+				cause = "a folio that objected to a cracked spine"
 				_end(false)
 				return
 		_:
-			_log("Gamble-Read is merely honest: %s." % neu.name)
+			curse_streak = 0
+			var pity_note := " Pity held: no third misfile in a row." if block else ""
+			_log("The spine was honest: %s.%s" % [neu.name, pity_note])
 			AudioMgr.play("identify")
-			_track_gamble(1, "Gamble-Read even")
-	# Gamble-Read is instant: still a turn, but no extra appetite beyond life.
+			_track_chance(1, "Crack even (%s)" % neu.name)
 	if phase == Phase.DUNGEON:
 		_spend_turn()
 	else:
@@ -830,36 +847,19 @@ func _kill(foe: Dictionary, by: String) -> void:
 	kills += 1
 	gold += int(foe.get("xp_gold", 2))
 	_log("%s dies (%s). You take %d gold." % [foe.name, by, int(foe.get("xp_gold", 2))])
-	if int(foe.get("bet_stake", 0)) > 0:
-		var stake := int(foe.bet_stake)
-		var payout := int(round(float(stake) * float(foe.bet_odds)))
-		pages += payout
-		gamble_wins += 1
-		_log("Blurb odds pay %d pages on %s." % [payout, foe.name])
-		_track_gamble(payout * 4 - stake * 4, "Blurb Odds vs %s" % foe.name)
-		foe.bet_stake = 0
-		AudioMgr.play("pickup")
 	if rng.randf() < 0.22:
-		_drop_at(Vector2i(foe.x, foe.y), Catalog.unidentified())
+		_drop_at(Vector2i(foe.x, foe.y), Catalog.unidentified(rng))
 		_stamp_uid(_top_item(Vector2i(foe.x, foe.y)))
 	elif rng.randf() < 0.18:
 		_drop_at(Vector2i(foe.x, foe.y), {"kind": "pages_pile", "name": "Loose Pages", "amount": rng.randi_range(1, 2), "sprite": 15})
 	entities.erase(foe)
 
 
-func _resolve_bets_floor_left() -> void:
-	for e in entities:
-		if int(e.get("bet_stake", 0)) > 0:
-			_log("Your stake on %s is void — they remain on a closed chapter." % e.name)
-			_track_gamble(-int(e.bet_stake) * 4, "Blurb Odds void (%s)" % e.name)
-			e.bet_stake = 0
-
-
 func _spend_turn() -> void:
 	if not run_active:
 		return
 	turn += 1
-	_tick_hunger()
+	_tick_candle()
 	_recompute_fov()
 	if not run_active:
 		return
@@ -874,24 +874,22 @@ func _spend_turn() -> void:
 	turn_done.emit()
 
 
-func _tick_hunger() -> void:
+func _tick_candle() -> void:
 	var every := 3
-	if depth >= 8:
-		every = 1
-	elif depth >= 4:
+	if depth >= 4:
 		every = 2
-	hunger_acc += 1
-	if hunger_acc >= every:
-		hunger_acc = 0
-		appetite -= 1
-		if appetite == 10:
-			_log("Appetite thins. The mash in your satchel starts to look like literature.")
-		if appetite <= 0:
-			appetite = 0
+	wax_acc += 1
+	if wax_acc >= every:
+		wax_acc = 0
+		candle -= 1
+		if candle == 10:
+			_log("The candle is a stub. Wax pools on the floor.")
+		if candle <= 0:
+			candle = 0
 			player.hp -= 1
-			_log("Starved. Starch fails; you take 1 damage.")
+			_log("The candle dies to a nub. You take 1 in the dark.")
 			if int(player.hp) <= 0:
-				cause = "starved in the stacks"
+				cause = "lost the last of the candle"
 				_end(false)
 
 
@@ -1135,9 +1133,9 @@ func _look_tile(x: int, y: int) -> String:
 		T.STAIRS_U:
 			return "stairs up"
 		T.FELT:
-			return "felt carpet"
+			return "reading-room floor"
 		T.DESK:
-			return "the Stack desk"
+			return "returns counter"
 		T.EXIT:
 			return "Binding Exit"
 		T.SHELF:
@@ -1160,9 +1158,9 @@ func tile_vis(x: int, y: int) -> bool:
 
 func _win() -> void:
 	won = true
-	cause = "returned the First Edition"
+	cause = "returned the Notable Folio"
 	AudioMgr.play("win")
-	_log("You step through the Binding Exit. The First Edition is yours. The house does not applaud, which is praise.")
+	_log("You step through the Binding Exit with the Notable Folio. The true First Edition can wait.")
 	_end(true)
 
 
@@ -1192,8 +1190,8 @@ func recap() -> Dictionary:
 		"gold": gold,
 		"pages": pages,
 		"turns": turn,
-		"gambles": gambles,
-		"gamble_wins": gamble_wins,
+		"cracks": cracks,
+		"crack_wins": crack_wins,
 		"biggest_win": "%s (%d)" % [biggest_win.desc, biggest_win.value],
 		"biggest_loss": "%s (%d)" % [biggest_loss.desc, biggest_loss.value],
 		"seed": seed_used,
@@ -1221,6 +1219,6 @@ func log_msg(text: String) -> void:
 func hud_line() -> String:
 	var tome := str(equipped_tome.get("name", "none"))
 	var bind := str(equipped_binding.get("name", "none"))
-	return "HP %d/%d   Depth %d   Gold %d   Pages %d   Appetite %d   ATK %d  DEF %d" % [
-		int(player.get("hp", 0)), int(player.get("hp_max", 0)), depth, gold, pages, appetite, player_atk(), player_def()
+	return "HP %d/%d   Depth %d   Gold %d   Pages %d   Candle %d   ATK %d  DEF %d" % [
+		int(player.get("hp", 0)), int(player.get("hp_max", 0)), depth, gold, pages, candle, player_atk(), player_def()
 	] + "\nTome: %s   Binding: %s" % [tome, bind]

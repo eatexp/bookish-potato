@@ -1,9 +1,10 @@
 class_name Catalog
 extends RefCounted
 
-## Original item, enemy, and blurb tables for Bookish Potatoe.
+## Item, enemy, and edition tables for Bookish Potato: The First Edition (v0.1).
 
-const DEPTHS := 10
+const DEPTHS := 5
+const PITY_CURSES := 2
 const MAP_W := 52
 const MAP_H := 34
 const FOV_R := 8
@@ -83,7 +84,10 @@ static func _base_item() -> Dictionary:
 		"value_gold": 0,
 		"heal": 0,
 		"food": 0,
+		"wax": 0,
 		"rarity": "common",
+		"quality": "mixed",
+		"tell": "",
 	}
 
 
@@ -124,6 +128,7 @@ static func potion_starch() -> Dictionary:
 	it.effect = "food"
 	it.food = 36
 	it.heal = 2
+	it.wax = 36
 	it.desc = "Yesterday's potatoes, which is either poetry or cannibalism."
 	it.sprite = 13
 	it.value_gold = 8
@@ -150,7 +155,7 @@ static func potion_tea() -> Dictionary:
 	it.true_name = it.name
 	it.effect = "tea"
 	it.heal = 7
-	it.food = 14
+	it.wax = 14
 	it.desc = "Steeped too long. Perfectly judgmental."
 	it.sprite = 13
 	it.value_gold = 10
@@ -193,24 +198,57 @@ static func scroll_recall() -> Dictionary:
 	return it
 
 
-static func unidentified() -> Dictionary:
+static func unidentified(rng: RandomNumberGenerator) -> Dictionary:
 	var it := _base_item()
 	it.kind = "unid"
 	it.name = "Unidentified Folio"
 	it.true_name = "Unidentified Folio"
 	it.identified = false
-	it.desc = "The spine is mute. Carefully Read it, or Gamble-Read and let the house decide."
 	it.sprite = 14
 	it.value_gold = 20
+	var q := rng.randf()
+	if q < 0.28:
+		it.quality = "sour"
+	elif q > 0.72:
+		it.quality = "promising"
+	else:
+		it.quality = "mixed"
+	it.tell = _tell_for(rng, str(it.quality))
+	it.desc = "Unknown edition. Librarian's tell: \"%s\"" % it.tell
 	return it
 
 
-static func first_edition() -> Dictionary:
+static func _tell_for(rng: RandomNumberGenerator, quality: String) -> String:
+	var sour := [
+		"The glue smells of vinegar.",
+		"The boards warp inward.",
+		"A stain like old tea, or worse.",
+	]
+	var mixed := [
+		"A ribbon marks a page.",
+		"The boards are scuffed.",
+		"Someone dog-eared chapter two.",
+	]
+	var promising := [
+		"The stitching is tight.",
+		"A gold thread in the spine.",
+		"The ink still smells of citrus.",
+	]
+	var pool: Array = mixed
+	match quality:
+		"sour":
+			pool = sour
+		"promising":
+			pool = promising
+	return str(pool[rng.randi_range(0, pool.size() - 1)])
+
+
+static func notable_folio() -> Dictionary:
 	var it := _base_item()
 	it.kind = "first"
-	it.name = "The First Edition"
+	it.name = "The Notable Folio"
 	it.true_name = it.name
-	it.desc = "The MacGuffin. Every other book in this dungeon is a rumor of this one."
+	it.desc = "A working copy the stacks should not have lost. The true First Edition is a later descent."
 	it.sprite = 15
 	it.value_gold = 0
 	it.rarity = "unique"
@@ -236,7 +274,7 @@ static func random_identified_loot(rng: RandomNumberGenerator, depth: int, rare:
 		return random_tome(rng, depth, rare)
 	if roll < 0.82:
 		return random_binding(rng, depth, rare)
-	return unidentified()
+	return unidentified(rng)
 
 
 static func potion_for_depth(rng: RandomNumberGenerator, _depth: int) -> Dictionary:
@@ -285,39 +323,68 @@ static func random_binding(rng: RandomNumberGenerator, depth: int, rare: bool) -
 	return (table[rng.randi_range(0, table.size() - 1)] as Dictionary).duplicate(true)
 
 
-static func resolve_unidentified(rng: RandomNumberGenerator, depth: int, gambled: bool) -> Dictionary:
-	## Returns {item, outcome, extra_pages, boom, curse_hp}
+static func resolve_unidentified(rng: RandomNumberGenerator, depth: int, crack: bool, quality: String, block_curse: bool) -> Dictionary:
+	## Collate (crack=false) is honest to quality. Crack is weighted; pity can forbid a curse.
 	var outcome := "normal"
-	if gambled:
+	if crack:
 		var r := rng.randf()
-		if r < 0.32:
-			outcome = "boom"
-		elif r < 0.72:
+		match quality:
+			"promising":
+				if r < 0.55:
+					outcome = "flare"
+				elif r < 0.88:
+					outcome = "normal"
+				else:
+					outcome = "curse"
+			"sour":
+				if r < 0.12:
+					outcome = "flare"
+				elif r < 0.42:
+					outcome = "normal"
+				else:
+					outcome = "curse"
+			_:
+				if r < 0.28:
+					outcome = "flare"
+				elif r < 0.72:
+					outcome = "normal"
+				else:
+					outcome = "curse"
+		if block_curse and outcome == "curse":
 			outcome = "normal"
-		else:
-			outcome = "curse"
+	else:
+		match quality:
+			"promising":
+				outcome = "normal_good"
+			"sour":
+				outcome = "curse"
+			_:
+				outcome = "normal"
 	var item: Dictionary
 	var extra_pages := 0
 	var boom := false
 	var curse_hp := 0
 	match outcome:
-		"boom":
+		"flare":
 			item = random_identified_loot(rng, depth, true)
 			if item.kind == "unid":
 				item = random_tome(rng, depth, true)
 			item.rarity = "rare"
-			item.name = "Lucky " + str(item.name)
+			item.name = "Noted " + str(item.name)
 			item.true_name = item.name
 			item.identified = true
 			if item.kind == "tome":
 				item.atk += 1
-			extra_pages = rng.randi_range(2, 5)
+			extra_pages = rng.randi_range(2, 4)
 			boom = true
 		"curse":
 			item = cursed_folio()
 			item.identified = true
 			curse_hp = rng.randi_range(3, 7)
-			extra_pages = -rng.randi_range(1, 3)
+			extra_pages = -rng.randi_range(0, 2)
+		"normal_good":
+			item = random_tome(rng, depth, true)
+			item.identified = true
 		_:
 			item = random_identified_loot(rng, depth, false)
 			if item.kind == "unid":
@@ -440,15 +507,3 @@ static func pick_enemy_kind(rng: RandomNumberGenerator, depth: int) -> String:
 		if r <= 0.0:
 			return str(k)
 	return "bookworm"
-
-
-static func slot_titles() -> Array:
-	return ["COOKBOOK", "DICTIONARY", "ATLAS", "LEDGER", "FOLIO", "CURSED"]
-
-
-static func slot_chapters() -> Array:
-	return ["I", "II", "III", "APPENDIX", "ERRATA"]
-
-
-static func slot_footnotes() -> Array:
-	return ["GOLD", "PAGES", "ITEM", "BLANK", "HEX"]

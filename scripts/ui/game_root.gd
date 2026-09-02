@@ -13,23 +13,17 @@ var inv_index := 0
 var pause_panel: Panel
 var settings_panel: Control
 var stack_panel: Panel
-var slots_result: Label
-var reels_lbl: Label
-var blurb_panel: Panel
+var returns_box: VBoxContainer
+var slips_box: VBoxContainer
 var recap_panel: Panel
 var recap_body: Label
 var inv_open := false
 var pause_open := false
-var blurb_target_id := -1
-var stake_pages := 2
-var slot_stake_gold := 5
-var slot_stake_pages := 2
-var using_page_bet := false
 
 
 func _ready() -> void:
 	UiKit.ensure_input()
-	DisplayServer.window_set_title("Bookish Potatoe")
+	DisplayServer.window_set_title("Bookish Potato: The First Edition")
 	AudioMgr.play_music()
 	_build_world()
 	_build_hud()
@@ -111,7 +105,6 @@ func _build_hud() -> void:
 	_build_inventory(root)
 	_build_pause(root)
 	_build_stack(root)
-	_build_blurb(root)
 	_build_recap(root)
 
 
@@ -131,7 +124,7 @@ func _build_inventory(root: Control) -> void:
 	v.offset_bottom = -8
 	inv_panel.add_child(v)
 	v.add_child(UiKit.lbl("Satchel  (I close)", 18, UiKit.GOLD))
-	v.add_child(UiKit.lbl("↑↓ select   E equip   U use   D drop   R carefully read   G gamble-read", 12, UiKit.DIM))
+	v.add_child(UiKit.lbl("↑↓ select   E equip   U use   D drop   R collate   G crack spine", 12, UiKit.DIM))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
@@ -146,10 +139,10 @@ func _build_inventory(root: Control) -> void:
 		row.add_child(b)
 	var row2 := HBoxContainer.new()
 	v.add_child(row2)
-	var br := UiKit.btn("Carefully Read", 160)
+	var br := UiKit.btn("Collate (safe)", 160)
 	br.pressed.connect(_inv_read)
 	row2.add_child(br)
-	var bg := UiKit.btn("Gamble-Read", 160)
+	var bg := UiKit.btn("Crack the spine", 160)
 	bg.pressed.connect(_inv_gamble)
 	row2.add_child(bg)
 
@@ -264,12 +257,13 @@ func _build_stack(root: Control) -> void:
 	stack_panel = Panel.new()
 	stack_panel.visible = false
 	stack_panel.set_anchors_preset(Control.PRESET_CENTER)
-	stack_panel.offset_left = -340
-	stack_panel.offset_top = -260
-	stack_panel.offset_right = 340
-	stack_panel.offset_bottom = 260
+	stack_panel.offset_left = -380
+	stack_panel.offset_top = -280
+	stack_panel.offset_right = 380
+	stack_panel.offset_bottom = 280
 	root.add_child(stack_panel)
 	var v := VBoxContainer.new()
+	v.name = "DeskV"
 	UiKit.fill(v)
 	v.offset_left = 16
 	v.offset_right = -16
@@ -277,140 +271,97 @@ func _build_stack(root: Control) -> void:
 	v.offset_bottom = -12
 	v.add_theme_constant_override("separation", 8)
 	stack_panel.add_child(v)
-	v.add_child(UiKit.lbl("The Stack  ·  house rules, calfskin racing form", 20, UiKit.GOLD))
-	v.add_child(UiKit.lbl("Buy folios, sell books, or feed Chapter Slots. Blurb Odds are placed in the dungeon (B next to a foe), not forced here.", 13, UiKit.DIM))
-	var shop_row := HBoxContainer.new()
-	shop_row.name = "ShopRow"
-	v.add_child(shop_row)
-	reels_lbl = UiKit.lbl("TITLE  ·  CHAPTER  ·  FOOTNOTE", 22, UiKit.GOLD)
-	reels_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(reels_lbl)
-	slots_result = UiKit.lbl("The reels wait.", 14, UiKit.PAPER)
-	v.add_child(slots_result)
-	var bet := HBoxContainer.new()
-	v.add_child(bet)
-	var b5 := UiKit.btn("Spin 5 gold", 150)
-	b5.pressed.connect(func() -> void:
-		using_page_bet = false
-		var r: Dictionary = Game.play_slots(false, 5)
-		_show_spin(r)
-	)
-	bet.add_child(b5)
-	var b2 := UiKit.btn("Spin 2 pages", 150)
-	b2.pressed.connect(func() -> void:
-		using_page_bet = true
-		var r: Dictionary = Game.play_slots(true, 2)
-		_show_spin(r)
-	)
-	bet.add_child(b2)
-	var leave := UiKit.btn("Leave the Stack", 200)
+	v.add_child(UiKit.lbl("Returns Desk", 22, UiKit.GOLD))
+	v.add_child(UiKit.lbl("They buy unidentified folios for pages. Nothing is for sale. Catalogue a shelf if you want slips — you choose the shelf, you lock, you recatalogue.", 13, UiKit.DIM))
+	returns_box = VBoxContainer.new()
+	v.add_child(returns_box)
+	v.add_child(UiKit.lbl("Catalogue a shelf", 16, UiKit.GOLD))
+	var shelves := HBoxContainer.new()
+	v.add_child(shelves)
+	for s in CatalogueDraw.shelves():
+		var sid := str(s.id)
+		var b := UiKit.btn(str(s.name), 120)
+		b.tooltip_text = str(s.hint)
+		b.pressed.connect(func() -> void:
+			Game.catalogue_choose_shelf(sid)
+			_rebuild_desk()
+			_refresh()
+		)
+		shelves.add_child(b)
+	slips_box = VBoxContainer.new()
+	v.add_child(slips_box)
+	var leave := UiKit.btn("Continue down", 200)
 	leave.pressed.connect(func() -> void:
 		Game.continue_from_stack()
 	)
 	v.add_child(leave)
 
 
-func _show_spin(r: Dictionary) -> void:
-	if r.is_empty():
-		slots_result.text = "The bookie does not spin on credit."
-		_refresh()
+func _rebuild_desk() -> void:
+	if returns_box == null:
 		return
-	reels_lbl.text = "%s   ·   %s   ·   %s" % [r.title, r.chapter, r.note]
-	slots_result.text = str(r.flavor)
-	_rebuild_shop()
-	_refresh()
-
-
-func _rebuild_shop() -> void:
-	var row := stack_panel.find_child("ShopRow", true, false) as HBoxContainer
-	if row == null:
-		return
-	for c in row.get_children():
+	for c in returns_box.get_children():
 		c.queue_free()
-	var buy := VBoxContainer.new()
-	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(buy)
-	buy.add_child(UiKit.lbl("For sale", 16, UiKit.GOLD))
-	for i in Game.shop_stock.size():
-		var it: Dictionary = Game.shop_stock[i]
-		var b := UiKit.btn("%s  (%dg)" % [it.name, int(it.get("price", 0))], 240)
-		var idx := i
-		b.pressed.connect(func() -> void:
-			Game.shop_buy(idx)
-			_rebuild_shop()
-			_refresh()
-		)
-		buy.add_child(b)
-	var sell := VBoxContainer.new()
-	sell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(sell)
-	sell.add_child(UiKit.lbl("Sell from satchel", 16, UiKit.GOLD))
-	for i in Game.inventory.size():
+	returns_box.add_child(UiKit.lbl("Hand in unidentified folios", 16, UiKit.GOLD))
+	var idxs: Array = Game.unid_inv_indices()
+	if idxs.is_empty():
+		returns_box.add_child(UiKit.lbl("None in the satchel.", 13, UiKit.DIM))
+	for i in idxs:
 		var it: Dictionary = Game.inventory[i]
-		var b := UiKit.btn("Sell %s" % it.name, 240)
-		var idx := i
+		var pay := 2
+		match str(it.get("quality", "mixed")):
+			"promising":
+				pay = 3
+			"sour":
+				pay = 1
+		var b := UiKit.btn("Return  ·  \"%s\"  ·  %d pages" % [it.get("tell", ""), pay], 640)
+		var idx: int = i
 		b.pressed.connect(func() -> void:
-			Game.shop_sell(idx)
-			_rebuild_shop()
+			Game.return_folio(idx)
+			_rebuild_desk()
 			_refresh()
 		)
-		sell.add_child(b)
-
-
-func _build_blurb(root: Control) -> void:
-	blurb_panel = Panel.new()
-	blurb_panel.visible = false
-	blurb_panel.set_anchors_preset(Control.PRESET_CENTER)
-	blurb_panel.offset_left = -280
-	blurb_panel.offset_top = -160
-	blurb_panel.offset_right = 280
-	blurb_panel.offset_bottom = 160
-	root.add_child(blurb_panel)
-	var v := VBoxContainer.new()
-	v.name = "BlurbV"
-	UiKit.fill(v)
-	v.offset_left = 16
-	v.offset_right = -16
-	v.offset_top = 12
-	v.offset_bottom = -12
-	blurb_panel.add_child(v)
-
-
-func _open_blurb() -> void:
-	var foes: Array = Game.adjacent_enemies()
-	if foes.is_empty():
-		Game.log_msg("No adjacent foe. Stand next to something with a blurb.")
-		_refresh()
+		returns_box.add_child(b)
+	if slips_box == null:
 		return
-	var v := blurb_panel.get_node("BlurbV") as VBoxContainer
-	for c in v.get_children():
+	for c in slips_box.get_children():
 		c.queue_free()
-	v.add_child(UiKit.lbl("Blurb Odds  ·  optional, never forced", 20, UiKit.GOLD))
-	var foe: Dictionary = foes[0]
-	blurb_target_id = int(foe.id)
-	v.add_child(UiKit.lbl(foe.name, 18, UiKit.PAPER))
-	v.add_child(UiKit.lbl("\"%s\"" % foe.blurb, 14, UiKit.DIM))
-	v.add_child(UiKit.lbl("House odds  %.1f : 1    (kill them this floor to be paid in pages)" % float(foe.odds), 14, UiKit.GOLD))
-	if int(foe.get("bet_stake", 0)) > 0:
-		v.add_child(UiKit.lbl("Already staked %d pages." % int(foe.bet_stake), 14, UiKit.PAPER))
-	else:
+	if Game.catalogue_shelf == "":
+		slips_box.add_child(UiKit.lbl("Pick a shelf. Three slips are laid out together. Nothing moves until you choose.", 13, UiKit.DIM))
+		return
+	slips_box.add_child(UiKit.lbl("Slips from %s  ·  lock or recatalogue (1 page)  ·  take one" % CatalogueDraw.shelf_name(Game.catalogue_shelf), 14, UiKit.PAPER))
+	for i in Game.catalogue_slips.size():
+		var slip: Dictionary = Game.catalogue_slips[i]
 		var row := HBoxContainer.new()
-		v.add_child(row)
-		for n in [1, 3, 5]:
-			var b := UiKit.btn("Stake %d pages" % n, 140)
-			var stake := n
-			b.pressed.connect(func() -> void:
-				Game.place_blurb_bet(blurb_target_id, stake)
-				blurb_panel.visible = false
+		slips_box.add_child(row)
+		var locked := " [locked]" if bool(slip.get("locked", false)) else ""
+		var lab := UiKit.lbl("%s%s  —  %s" % [slip.title, locked, slip.note], 13, UiKit.PAPER)
+		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lab.custom_minimum_size = Vector2(280, 0)
+		row.add_child(lab)
+		var idx2: int = i
+		if not bool(slip.get("locked", false)):
+			var lk := UiKit.btn("Lock", 70)
+			lk.pressed.connect(func() -> void:
+				Game.catalogue_lock(idx2)
+				_rebuild_desk()
 				_refresh()
 			)
-			row.add_child(b)
-	var cancel := UiKit.btn("No bet", 120)
-	cancel.pressed.connect(func() -> void:
-		blurb_panel.visible = false
-	)
-	v.add_child(cancel)
-	blurb_panel.visible = true
+			row.add_child(lk)
+			var rd := UiKit.btn("Recatalogue", 120)
+			rd.pressed.connect(func() -> void:
+				Game.catalogue_redraw(idx2)
+				_rebuild_desk()
+				_refresh()
+			)
+			row.add_child(rd)
+		var tk := UiKit.btn("Take", 70)
+		tk.pressed.connect(func() -> void:
+			Game.catalogue_take(idx2)
+			_rebuild_desk()
+			_refresh()
+		)
+		row.add_child(tk)
 
 
 func _build_recap(root: Control) -> void:
@@ -443,7 +394,7 @@ func _on_stack() -> void:
 	stack_panel.visible = true
 	inv_open = false
 	inv_panel.visible = false
-	_rebuild_shop()
+	_rebuild_desk()
 	_refresh()
 
 
@@ -456,12 +407,11 @@ func _on_recap() -> void:
 	pause_open = false
 	pause_panel.visible = false
 	stack_panel.visible = false
-	blurb_panel.visible = false
 	inv_panel.visible = false
 	var e: Dictionary = Game.recap()
 	var title := "You escaped the stacks." if Game.won else "You died in the stacks."
-	recap_body.text = "%s\n\n%s\nDepth reached: %s\nKills: %s\nGold: %s    Pages: %s\nTurns: %s\nGambles: %s  (wins %s)\nBiggest gamble won: %s\nBiggest gamble lost: %s\n\nThis recap is in the local graveyard." % [
-		title, e.cause, e.depth, e.kills, e.gold, e.pages, e.turns, e.gambles, e.gamble_wins,
+	recap_body.text = "%s\n\n%s\nDepth reached: %s\nKills: %s\nGold: %s    Pages: %s\nTurns: %s\nSpines cracked: %s  (clean/flare %s)\nBiggest catalogue win: %s\nWorst misfile: %s\n\nLocal graveyard only." % [
+		title, e.cause, e.depth, e.kills, e.gold, e.pages, e.turns, e.get("cracks", 0), e.get("crack_wins", 0),
 		e.biggest_win, e.biggest_loss
 	]
 	recap_panel.visible = true
@@ -479,10 +429,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if recap_panel.visible:
 		return
 	if event.is_action_pressed("pause"):
-		if blurb_panel.visible:
-			blurb_panel.visible = false
-			get_viewport().set_input_as_handled()
-			return
 		if Game.phase == Game.Phase.STACK:
 			Game.continue_from_stack()
 			get_viewport().set_input_as_handled()
@@ -505,10 +451,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if inv_open:
 		_inv_input(event)
-		return
-	if event.is_action_pressed("blurb"):
-		_open_blurb()
-		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("stairs"):
 		Game.use_stairs()
@@ -619,13 +561,17 @@ func _rebuild_inv() -> void:
 		var mark := ">" if i == inv_index else " "
 		var extra := ""
 		if str(it.kind) == "unid":
-			extra = "  [unread]"
+			extra = "  tell: \"%s\"" % it.get("tell", "")
 		elif str(it.kind) == "tome":
 			extra = "  ATK %d  %s" % [int(it.atk), it.effect]
 		elif str(it.kind) == "binding":
 			extra = "  DEF %d" % int(it.def)
 		var l := UiKit.lbl("%s %s%s" % [mark, it.name, extra], 14, UiKit.GOLD if i == inv_index else UiKit.PAPER)
 		inv_list.add_child(l)
+	var flash: Dictionary = Game.last_identify
+	if not flash.is_empty():
+		inv_list.add_child(UiKit.lbl("Last: %s → %s (%s)" % [flash.get("kind", ""), flash.get("name", ""), flash.get("outcome", "")], 13, UiKit.GOLD))
+	inv_list.add_child(UiKit.lbl("Crack pity: %d/%d misfiles in a row (third is clean)." % [Game.curse_streak, Catalog.PITY_CURSES], 12, UiKit.DIM))
 
 
 func _refresh() -> void:
@@ -641,7 +587,7 @@ func _refresh() -> void:
 		bb += "[color=%s]%s[/color]\n" % [col, lines[i]]
 	log_box.text = bb
 	if Persist.key_hints:
-		hint_lbl.text = "WASD/arrows/numpad move · . wait · I satchel · B blurb odds · Esc pause · bump stairs/desk"
+		hint_lbl.text = "WASD/arrows/numpad move · . wait · I satchel · Esc pause · bump stairs"
 	else:
 		hint_lbl.text = ""
 	if not Game.player.is_empty() and view:

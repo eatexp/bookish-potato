@@ -10,7 +10,7 @@ func _ready() -> void:
 	UiKit.ensure_input()
 	UiKit.apply_theme(self)
 	UiKit.fill(self)
-	DisplayServer.window_set_title("Bookish Potatoe")
+	DisplayServer.window_set_title("Bookish Potato: The First Edition")
 	AudioMgr.play_music()
 	_build()
 
@@ -22,34 +22,28 @@ func _build() -> void:
 	add_child(bg)
 
 	var glow := ColorRect.new()
-	glow.color = Color(0.18, 0.10, 0.04, 0.55)
-	glow.set_anchors_preset(Control.PRESET_CENTER)
-	glow.offset_left = -280
-	glow.offset_top = -220
-	glow.offset_right = 280
-	glow.offset_bottom = 80
+	glow.color = Color(0.12, 0.08, 0.05, 0.7)
+	glow.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	glow.offset_bottom = 170
 	add_child(glow)
 
-	var portrait := TextureRect.new()
-	portrait.texture = load("res://assets/sprites/portrait.png")
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	portrait.custom_minimum_size = Vector2(96, 96)
-	portrait.position = Vector2(80, 70)
-	add_child(portrait)
-
-	var title := UiKit.lbl("BOOKISH POTATOE", 42, UiKit.GOLD)
-	title.position = Vector2(200, 78)
-	title.size = Vector2(900, 54)
+	var title := UiKit.lbl("BOOKISH POTATO", 40, UiKit.GOLD)
+	title.position = Vector2(80, 36)
+	title.size = Vector2(1100, 52)
 	add_child(title)
 
-	var sub := UiKit.lbl("A turn-based dungeon crawler. Dual currencies. Unidentified folios. The house takes bookmarks.", 16, UiKit.DIM)
-	sub.position = Vector2(200, 132)
-	sub.size = Vector2(820, 48)
+	var sub := UiKit.lbl("The First Edition    ·    v0.1    ·    a turn-based dungeon crawler", 18, UiKit.PAPER)
+	sub.position = Vector2(80, 90)
+	sub.size = Vector2(1000, 28)
 	add_child(sub)
 
+	var tag := UiKit.lbl("Grid. Fog of war. Permadeath. Unidentified editions. Collate or crack the spine.", 15, UiKit.DIM)
+	tag.position = Vector2(80, 122)
+	tag.size = Vector2(1000, 28)
+	add_child(tag)
+
 	var col := VBoxContainer.new()
-	col.position = Vector2(200, 200)
+	col.position = Vector2(80, 200)
 	col.custom_minimum_size = Vector2(360, 400)
 	col.add_theme_constant_override("separation", 10)
 	add_child(col)
@@ -89,13 +83,13 @@ func _build() -> void:
 	for b in [b_new, b_how, b_set, b_gr, b_quit]:
 		col.add_child(b)
 
-	var flavor := UiKit.lbl("You are a potato who reads. The dungeon is a library that gambles. Recover the First Edition from the tenth floor and walk the Binding Exit. There is no mid-run save. Death is a closed stack.", 15, UiKit.PAPER)
-	flavor.position = Vector2(200, 490)
-	flavor.size = Vector2(520, 140)
+	var flavor := UiKit.lbl("Five floors. Recover the Notable Folio and walk the Binding Exit. Unread books carry a librarian's tell — collate safely, or crack the spine. There is no mid-run save.\n\nThis game does not contain any real-world currency gambling or microtransactions.", 15, UiKit.PAPER)
+	flavor.position = Vector2(80, 500)
+	flavor.size = Vector2(720, 160)
 	add_child(flavor)
 
 	_settings_box = _make_settings()
-	_settings_box.position = Vector2(620, 200)
+	_settings_box.position = Vector2(480, 200)
 	_settings_box.visible = false
 	add_child(_settings_box)
 
@@ -165,7 +159,7 @@ func _make_settings() -> Control:
 		Persist.save_settings()
 	))
 
-	v.add_child(UiKit.lbl("Keys: WASD / arrows / numpad (diagonals). Wait: . or numpad 5. Inventory: I. Blurb Odds: B (adjacent foe). Esc: pause. Stairs: , or bump.", 14, UiKit.DIM))
+	v.add_child(UiKit.lbl("Keys: WASD / arrows / numpad (diagonals). Wait: . or numpad 5. Inventory: I. Esc: pause. Stairs: , or bump.", 14, UiKit.DIM))
 	return p
 
 
@@ -190,7 +184,7 @@ func _refresh_grave() -> void:
 		c.queue_free()
 	_grave_box.add_child(UiKit.lbl("Graveyard  ·  local only (user://)", 20, UiKit.GOLD))
 	if Persist.graveyard.is_empty():
-		_grave_box.add_child(UiKit.lbl("No closed runs yet. The house is patient.", 15, UiKit.DIM))
+		_grave_box.add_child(UiKit.lbl("No closed runs yet.", 15, UiKit.DIM))
 		return
 	for e in Persist.graveyard:
 		var line := "%s  ·  %s at depth %s  ·  kills %s  ·  gold %s  pages %s  ·  %s" % [

@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Headless checks: maps connect, gambling resolves, a crawl can die and recap.
+## Headless checks: maps connect, collate/crack, catalogue slips, crawl, recap.
 
 
 func _init() -> void:
@@ -11,7 +11,7 @@ func _run() -> void:
 	var failures := 0
 	failures += _maps()
 	failures += _catalog()
-	failures += _slots()
+	failures += _slips()
 	failures += _run_loop()
 	if failures > 0:
 		push_error("SMOKE FAILED (%d)" % failures)
@@ -49,41 +49,51 @@ func _maps() -> int:
 func _catalog() -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
-	var boom := 0
+	var flare := 0
 	var curse := 0
 	for _i in 40:
-		var r: Dictionary = Catalog.resolve_unidentified(rng, 5, true)
-		if str(r.outcome) == "boom":
-			boom += 1
+		var unid: Dictionary = Catalog.unidentified(rng)
+		if str(unid.tell) == "":
+			push_error("unid missing tell")
+			return 1
+		var r: Dictionary = Catalog.resolve_unidentified(rng, 4, true, str(unid.quality), false)
+		if str(r.outcome) == "flare":
+			flare += 1
 		elif str(r.outcome) == "curse":
 			curse += 1
 		if (r.item as Dictionary).is_empty():
 			push_error("identify returned empty item")
 			return 1
-	if boom == 0 or curse == 0:
-		push_error("gamble-read distribution looks broken boom=%d curse=%d" % [boom, curse])
+	# Pity: two curses then block.
+	var blocked: Dictionary = Catalog.resolve_unidentified(rng, 4, true, "sour", true)
+	if str(blocked.outcome) == "curse":
+		push_error("pity failed to block a curse")
+		return 1
+	if flare == 0 or curse == 0:
+		push_error("crack distribution looks broken flare=%d curse=%d" % [flare, curse])
 		return 1
 	for k in Catalog.enemy_kinds():
-		var e: Dictionary = Catalog.enemy_template(str(k), 6)
-		if int(e.hp) <= 0 or str(e.blurb) == "":
+		var e: Dictionary = Catalog.enemy_template(str(k), 4)
+		if int(e.hp) <= 0:
 			push_error("bad enemy %s" % k)
 			return 1
-	print("catalog: boom=%d curse=%d in 40 gambled reads" % [boom, curse])
+	print("catalog: flare=%d curse=%d in 40 cracks; pity held" % [flare, curse])
 	return 0
 
 
-func _slots() -> int:
+func _slips() -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
-	var paid := 0
-	for _i in 30:
-		var r: Dictionary = Slots.spin(rng, 4)
-		if int(r.gold) > 0 or int(r.pages) > 0 or not (r.item as Dictionary).is_empty():
-			paid += 1
-		if str(r.title) == "" or str(r.flavor) == "":
-			push_error("slots missing fields")
+	for s in CatalogueDraw.shelves():
+		var three: Array = CatalogueDraw.draw_three(rng, 3, str(s.id))
+		if three.size() != 3:
+			push_error("shelf %s did not yield 3 slips" % s.id)
 			return 1
-	print("slots: %d paying spins / 30" % paid)
+		for slip in three:
+			if str(slip.title) == "" or str(slip.note) == "":
+				push_error("blank slip on %s" % s.id)
+				return 1
+	print("catalogue: 5 shelves × 3 slips ok")
 	return 0
 
 
@@ -97,8 +107,8 @@ func _run_loop() -> int:
 	if not G.is_floor_connected():
 		push_error("seed 42 floor not connected")
 		return 1
-	if str(G.equipped_tome.get("name", "")) == "":
-		push_error("player has no tome")
+	if Catalog.DEPTHS != 5:
+		push_error("v0.1 should be 5 floors")
 		return 1
 	var moved := 0
 	for _i in 80:
@@ -115,24 +125,26 @@ func _run_loop() -> int:
 					break
 		if not step:
 			G.wait_turn()
-	print("crawl: moved %d, depth %d, turn %d, hp %s, connected %s" % [
-		moved, G.depth, G.turn, G.player.get("hp", "?"), G.is_floor_connected()
+	print("crawl: moved %d, depth %d, turn %d, hp %s, candle %s, connected %s" % [
+		moved, G.depth, G.turn, G.player.get("hp", "?"), G.candle, G.is_floor_connected()
 	])
-	var unid := Catalog.unidentified()
+	var unid := Catalog.unidentified(G.rng)
 	G._stamp_uid(unid)
 	G.inventory.append(unid)
-	G.carefully_read(G.inventory.size() - 1)
-	var unid2 := Catalog.unidentified()
+	G.collate(G.inventory.size() - 1)
+	var unid2 := Catalog.unidentified(G.rng)
 	G._stamp_uid(unid2)
 	G.inventory.append(unid2)
-	G.gamble_read(G.inventory.size() - 1)
-	G.gold += 20
+	G.crack_spine(G.inventory.size() - 1)
 	G.pages += 6
-	G._open_stack(false)
-	var spin: Dictionary = G.play_slots(false, 5)
-	if spin.is_empty():
-		push_error("slots would not spin")
+	G._open_returns()
+	G.catalogue_choose_shelf("cookery")
+	if G.catalogue_slips.size() != 3:
+		push_error("catalogue did not lay out slips")
 		return 1
+	G.catalogue_lock(0)
+	G.catalogue_redraw(1)
+	G.catalogue_take(0)
 	G.continue_from_stack()
 	if G.run_active:
 		G.cause = "smoke-test scholarly injury"
@@ -145,7 +157,7 @@ func _run_loop() -> int:
 		push_error("graveyard empty after death")
 		return 1
 	G.new_run(1001)
-	G.has_first_edition = true
+	G.has_notable = true
 	G._win()
 	if not G.won:
 		push_error("win path failed")
