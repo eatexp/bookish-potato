@@ -27,33 +27,34 @@ Closing Time brings the Fine Collector. Survive until The Stacks close.
 
 This game does not contain any real-world currency gambling or microtransactions."""
 
+
 func _ready() -> void:
+	UiKit.ensure_input()
+	UiKit.apply_theme(self)
+	UiKit.fill(self)
+	DisplayServer.window_set_title("Bookish Potato: The First Edition")
 	var bg := ColorRect.new()
-	bg.set_anchors_preset(PRESET_FULL_RECT)
 	bg.color = Color(0.09, 0.07, 0.05)
+	UiKit.fill(bg)
 	add_child(bg)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(PRESET_FULL_RECT)
-	panel.add_theme_constant_override("margin_left", 56)
-	panel.add_theme_constant_override("margin_right", 56)
-	panel.add_theme_constant_override("margin_top", 40)
-	panel.add_theme_constant_override("margin_bottom", 40)
-	add_child(panel)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	panel.add_child(v)
-	var title := Label.new()
-	title.text = "How to play"
-	title.add_theme_font_size_override("font_size", 28)
-	v.add_child(title)
+	var title := UiKit.lbl("How to play", 28, UiKit.GOLD)
+	title.position = Vector2(56, 28)
+	title.size = Vector2(1100, 40)
+	add_child(title)
 	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(scroll)
+	scroll.position = Vector2(56, 80)
+	scroll.size = Vector2(1168, 540)
+	add_child(scroll)
 	var body := Label.new()
 	body.text = TEXT
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(1140, 0)
+	body.add_theme_font_size_override("font_size", 16)
+	body.add_theme_color_override("font_color", UiKit.PAPER)
 	scroll.add_child(body)
-	var back := Button.new()
-	back.text = "Back"
-	back.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	v.add_child(back)
+	var back := UiKit.btn("Back", 200)
+	back.position = Vector2(56, 640)
+	back.pressed.connect(func() -> void:
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	add_child(back)
