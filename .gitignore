@@ -1,0 +1,24 @@
+# Godot 4
+.godot/
+/android/
+
+# Local exports
+build/
+export/
+*.exe
+*.pck
+*.apk
+*.aab
+*.dmg
+*.app
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*~
+*.swp
+
+# Python asset tooling
+__pycache__/
+*.pyc
+.venv/
