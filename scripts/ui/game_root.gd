@@ -72,7 +72,7 @@ func _build_world() -> void:
 	world.add_child(view)
 	camera = Camera2D.new()
 	camera.enabled = true
-	camera.zoom = Vector2(0.62, 0.62)
+	camera.zoom = Vector2(0.46, 0.46)
 	world.add_child(camera)
 	RenderingServer.set_default_clear_color(Color(0.03, 0.02, 0.02))
 
@@ -332,6 +332,8 @@ func _shelf_color(pattern: String) -> Color:
 			return Color(0.22, 0.28, 0.48)
 		"gazette":
 			return Color(0.45, 0.34, 0.12)
+		"hymnal":
+			return Color(0.42, 0.32, 0.52)
 		"primer":
 			return Color(0.62, 0.52, 0.32)
 		_:

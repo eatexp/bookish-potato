@@ -1,12 +1,12 @@
 class_name Catalog
 extends RefCounted
 
-## v0.1: five tomes, four passives. No curses on the level-up row.
+## v0.1: six tomes, four passives, two curses. Curses never sit on the 3-pick.
 
 const PITY_CURSES := 2
 const STAGE_SECS := 720.0
 const SURGE_AT := 600.0
-const MAX_WEAPONS := 5
+const MAX_WEAPONS := 6
 const MAX_PASSIVES := 4
 const HORDE_CAP := 300
 const HORDE_SOFT := 200
@@ -19,7 +19,7 @@ enum Pickup { GEM, GOLD, BISCUIT, FOLIO }
 
 
 static func identity_count() -> int:
-	return tome_defs().size() + passive_defs().size()
+	return tome_defs().size() + passive_defs().size() + curse_defs().size()
 
 
 static func tome_defs() -> Array:
@@ -27,8 +27,8 @@ static func tome_defs() -> Array:
 		{
 			"pattern": "primer",
 			"name": "Primer",
-			"effect": "cards",
-			"desc": "Index cards fly themselves. A paper trail.",
+			"effect": "darts",
+			"desc": "Small glyphs. Paper darts in the way you face.",
 			"atk": 8,
 			"cd": 0.48,
 			"sprite": 8,
@@ -36,35 +36,44 @@ static func tome_defs() -> Array:
 		{
 			"pattern": "cookbook",
 			"name": "Cookbook",
-			"effect": "aura",
-			"desc": "A close steam of recipes. The page glows.",
+			"effect": "nova",
+			"desc": "Close fire cones. A recipe nova.",
 			"atk": 10,
-			"cd": 0.0,
+			"cd": 0.72,
 			"sprite": 8,
+		},
+		{
+			"pattern": "dictionary",
+			"name": "Dictionary",
+			"effect": "define",
+			"desc": "A slow pulse. Define.",
+			"atk": 7,
+			"cd": 1.45,
+			"sprite": 9,
 		},
 		{
 			"pattern": "atlas",
 			"name": "Atlas",
 			"effect": "orbit",
-			"desc": "Open folios orbit. Pages flutter in their wake.",
+			"desc": "Pages orbit the potato.",
 			"atk": 6,
 			"cd": 0.0,
 			"sprite": 10,
 		},
 		{
-			"pattern": "dictionary",
-			"name": "Dictionary",
-			"effect": "ripple",
-			"desc": "A letter-ripple. Named things hesitate.",
-			"atk": 7,
-			"cd": 1.35,
-			"sprite": 9,
+			"pattern": "hymnal",
+			"name": "Hymnal",
+			"effect": "wave",
+			"desc": "A wide knockback wave.",
+			"atk": 9,
+			"cd": 1.25,
+			"sprite": 11,
 		},
 		{
 			"pattern": "gazette",
 			"name": "Gazette",
 			"effect": "spread",
-			"desc": "Spread clippings that shove.",
+			"desc": "A hail of clippings in a spread.",
 			"atk": 8,
 			"cd": 1.15,
 			"sprite": 11,
@@ -74,10 +83,17 @@ static func tome_defs() -> Array:
 
 static func passive_defs() -> Array:
 	return [
-		{"pattern": "bookplate", "name": "Bookplate", "effect": "magnet", "desc": "Leaves snap toward you.", "sprite": 13},
-		{"pattern": "colophon", "name": "Colophon", "effect": "hp", "desc": "A printer's mark. More tuber to bruise.", "sprite": 13},
+		{"pattern": "bookplate", "name": "Bookplate", "effect": "magnet", "desc": "A page vacuum. Leaves snap in.", "sprite": 13},
+		{"pattern": "colophon", "name": "Colophon", "effect": "firerate", "desc": "The printer's mark. Tomes speak faster.", "sprite": 13},
 		{"pattern": "jacket", "name": "Dust jacket", "effect": "armor", "desc": "A wrap that takes the scuffs.", "sprite": 13},
-		{"pattern": "overdue", "name": "Overdue stamp", "effect": "speed", "desc": "You move like a due date.", "sprite": 13},
+		{"pattern": "overdue", "name": "Overdue stamp", "effect": "damage", "desc": "The fine is yours. Damage up.", "sprite": 13},
+	]
+
+
+static func curse_defs() -> Array:
+	return [
+		{"pattern": "errata", "name": "Errata", "effect": "misfire", "desc": "Hurtless chaos. Glyphs fly the wrong way.", "sprite": 12},
+		{"pattern": "misfile", "name": "Misfile", "effect": "hiccup", "desc": "A brief scramble. The wrong tome hiccups.", "sprite": 12},
 	]
 
 
@@ -86,6 +102,9 @@ static func def_by_pattern(pattern: String) -> Dictionary:
 		if str(d.pattern) == pattern:
 			return (d as Dictionary).duplicate(true)
 	for d in passive_defs():
+		if str(d.pattern) == pattern:
+			return (d as Dictionary).duplicate(true)
+	for d in curse_defs():
 		if str(d.pattern) == pattern:
 			return (d as Dictionary).duplicate(true)
 	return {}
@@ -142,6 +161,24 @@ static func make_passive(pattern: String, rare: bool = false) -> Dictionary:
 	return it
 
 
+static func make_curse(pattern: String) -> Dictionary:
+	var d := def_by_pattern(pattern)
+	var eff := str(d.get("effect", ""))
+	if d.is_empty() or (eff != "misfire" and eff != "hiccup"):
+		d = def_by_pattern("errata")
+	var it := _base_item()
+	it.kind = "curse"
+	it.cursed = true
+	it.pattern = str(d.pattern)
+	it.name = str(d.name)
+	it.true_name = it.name
+	it.effect = str(d.effect)
+	it.desc = str(d.desc)
+	it.sprite = int(d.sprite)
+	it.value_gold = 0
+	return it
+
+
 static func starter_tome() -> Dictionary:
 	return make_tome("primer", false)
 
@@ -194,12 +231,19 @@ static func passive_patterns() -> Array:
 	return out
 
 
+static func curse_patterns() -> Array:
+	var out: Array = []
+	for d in curse_defs():
+		out.append(str((d as Dictionary).get("pattern", "")))
+	return out
+
+
 static func first_offer_patterns() -> Array:
 	return ["cookbook", "atlas"]
 
 
 static func later_tome_patterns() -> Array:
-	return ["cookbook", "atlas", "dictionary", "gazette", "primer"]
+	return ["cookbook", "atlas", "dictionary", "hymnal", "gazette", "primer"]
 
 
 static func random_edition(rng: RandomNumberGenerator, rare: bool, allow_passive: bool, first_offer: bool) -> Dictionary:
@@ -257,9 +301,11 @@ static func resolve_floor(rng: RandomNumberGenerator, crack: bool, quality: Stri
 				outcome = "normal"
 				extra_pages = maxi(extra_pages, 2)
 			else:
-				rare = true
 				extra_pages = maxi(extra_pages, rng.randi_range(3, 5))
-				tax_hp = rng.randi_range(6, 10)
+				var curse_pat := "errata" if rng.randf() < 0.5 else "misfile"
+				var cursed: Dictionary = make_curse(curse_pat)
+				cursed.identified = true
+				return {"item": cursed, "outcome": outcome, "extra_pages": extra_pages, "tax_hp": 0}
 	else:
 		match quality:
 			"promising":
@@ -273,43 +319,52 @@ static func resolve_floor(rng: RandomNumberGenerator, crack: bool, quality: Stri
 
 
 static func enemy_kinds() -> Array:
-	return ["patron", "overdue", "notice", "collector"]
+	return ["patron", "swift", "tank", "burst", "collector"]
 
 
 static func enemy_template(kind: String, wave: float) -> Dictionary:
 	var w := maxf(1.0, wave)
 	var e := {
-		"id": 0, "kind": kind, "name": "Patron", "pos": Vector2.ZERO,
+		"id": 0, "kind": kind, "name": "Overdue Patron", "pos": Vector2.ZERO,
 		"hp": 10.0, "hp_max": 10.0, "atk": 4.0, "speed": 80.0, "radius": 11.0,
 		"ai": "rush", "sprite": 2, "slow_t": 0.0, "xp": 1, "gold": 0, "elite": false,
+		"burst": false,
 	}
 	match kind:
 		"patron":
-			e.name = "Patron"
+			e.name = "Overdue Patron"
 			e.hp = 8.0 + w * 2.4
 			e.atk = 4.0 + w * 0.25
 			e.speed = 78.0 + w * 1.2
 			e.radius = 10.0
 			e.sprite = 2
 			e.xp = 1
-		"overdue":
+		"swift":
 			e.name = "Overdue Patron"
-			e.hp = 16.0 + w * 4.0
-			e.atk = 6.0 + w * 0.45
-			e.speed = 54.0
-			e.radius = 14.0
+			e.hp = 7.0 + w * 2.0
+			e.atk = 4.0 + w * 0.22
+			e.speed = 118.0 + w * 1.6
+			e.radius = 9.0
+			e.sprite = 7
+			e.xp = 1
+		"tank":
+			e.name = "Overdue Patron"
+			e.hp = 22.0 + w * 5.0
+			e.atk = 7.0 + w * 0.4
+			e.speed = 48.0
+			e.radius = 15.0
 			e.sprite = 2
 			e.xp = 2
 			e.gold = 1
-		"notice":
-			e.name = "Fine Notice"
-			e.hp = 11.0 + w * 2.8
-			e.atk = 5.0 + w * 0.3
-			e.speed = 92.0
+		"burst":
+			e.name = "Overdue Patron"
+			e.hp = 10.0 + w * 2.6
+			e.atk = 5.0 + w * 0.28
+			e.speed = 72.0
 			e.radius = 11.0
-			e.ai = "strafe"
-			e.sprite = 7
+			e.sprite = 2
 			e.xp = 2
+			e.burst = true
 		_:
 			e.kind = "collector"
 			e.name = "Fine Collector"
@@ -326,15 +381,18 @@ static func enemy_template(kind: String, wave: float) -> Dictionary:
 
 
 static func pick_enemy_kind(rng: RandomNumberGenerator, elapsed: float) -> String:
-	var overdue_w := 0.3 + minf(elapsed / 100.0, 1.8)
-	var notice_w := 0.0 + minf(maxf(elapsed - 70.0, 0.0) / 90.0, 1.6)
-	var total := 3.2 + overdue_w + notice_w
+	var tank_w := 0.3 + minf(elapsed / 100.0, 1.8)
+	var swift_w := 0.2 + minf(elapsed / 120.0, 1.4)
+	var burst_w := 0.0 + minf(maxf(elapsed - 50.0, 0.0) / 90.0, 1.4)
+	var total := 3.2 + tank_w + swift_w + burst_w
 	var r := rng.randf() * total
 	if r < 3.2:
 		return "patron"
-	if r < 3.2 + overdue_w:
-		return "overdue"
-	return "notice"
+	if r < 3.2 + tank_w:
+		return "tank"
+	if r < 3.2 + tank_w + swift_w:
+		return "swift"
+	return "burst"
 
 
 static func xp_to_next(player_level: int) -> int:

@@ -3,27 +3,30 @@ extends Control
 const TEXT := """Bookish Potato: The First Edition
 A 2D bullet heaven on one floor of The Stacks.
 
-You are a potato sprite with a library card. Move with WASD. Primer fires itself from the first second — flying index cards, no extra button. XP from overdue patrons fills the bar. Three identified folio cards. One click. The floor pauses.
+You are a potato sprite with a library card. Move with WASD. Primer fires itself — small glyphs and paper darts the way you face. XP from overdue patrons fills the bar. Three identified folio cards. One click. The floor pauses.
 
-Five tomes
-• Primer — start. Auto-fire on spawn. Flying index cards with a paper trail.
-• Cookbook — close aura. Steam and recipe-page glow.
-• Atlas — orbiting open folios with a page-flutter trail.
-• Dictionary — slow letter-ripple pulse. Never the first offer.
-• Gazette — spread clippings that shove.
+Six tomes (max in a run)
+• Primer — start. Glyphs / paper darts in the facing direction.
+• Cookbook — close fire cones and a recipe nova.
+• Dictionary — a slow pulse. Define.
+• Atlas — pages orbit the potato.
+• Hymnal — a wide knockback wave.
+• Gazette — a hail of clippings in a spread.
 
 The first folio draw is Cookbook or Atlas. Dictionary and passives wait. Errata and Misfile never sit on that row.
 
-Passives (later levels): Bookplate magnet, Colophon pages of HP, Dust jacket armor, Overdue stamp speed.
+Passives (later levels): Bookplate (page vacuum), Colophon (fire rate), Dust jacket (armor), Overdue stamp (damage up).
+
+Curses (Crack only): Errata (hurtless misfire chaos), Misfile (wrong-tome hiccup). Not a tease. Extra pages come with them.
 
 Floor pickups
-Collate — always available. Identified folio. No tax.
-Crack — optional. Identified folio plus extra pages, with a small HP sting. The book opens. No reel.
+Collate — always available. Identified folio. No curse.
+Crack — optional. Swingy. The book opens. No reel.
 
 Returns Desk
 After the run. Unidentified folios. Pages. Stamp to acquire. No sell, no reroll, no retrieve.
 
-Closing Time brings the Fine Collector. Survive until The Stacks close.
+One enemy family: overdue patrons (faster, tankier, or a burst of pages). Closing Time brings the Fine Collector.
 
 This game does not contain any real-world currency gambling or microtransactions."""
 

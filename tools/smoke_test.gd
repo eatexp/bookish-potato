@@ -17,26 +17,23 @@ func _run() -> void:
 		push_error("SMOKE FAILED (%d)" % failures)
 		quit(1)
 	else:
-		print("SMOKE OK five tomes, curses off level-up, first draw cookbook/atlas, horde 300")
+		print("SMOKE OK six tomes, 12 identities, curses off the 3-pick")
 		quit(0)
 
 
 func _catalog() -> int:
-	if Catalog.MAX_WEAPONS != 5:
-		push_error("max tomes should be 5")
+	if Catalog.MAX_WEAPONS != 6:
+		push_error("max tomes should be 6")
 		return 1
 	if Catalog.HORDE_CAP != 300:
 		push_error("horde cap should be 300")
 		return 1
-	if Catalog.NEXT_FOLIO_CAP != 3:
-		push_error("next folio cap should be 3")
-		return 1
-	if Catalog.identity_count() != 9:
-		push_error("identity count %d should be 5 tomes + 4 passives" % Catalog.identity_count())
+	if Catalog.identity_count() != 12:
+		push_error("identity count %d should be 12" % Catalog.identity_count())
 		return 1
 	var tp: Array = Catalog.tome_patterns()
-	if tp.size() != 5 or not tp.has("gazette") or tp.has("hymnal") or tp.has("ledger"):
-		push_error("tome list should be five: primer cookbook atlas dictionary gazette")
+	if tp.size() != 6 or not tp.has("hymnal") or not tp.has("gazette") or not tp.has("primer"):
+		push_error("six tomes: primer cookbook dictionary atlas hymnal gazette")
 		return 1
 	if str(Catalog.starter_tome().get("pattern", "")) != "primer":
 		push_error("starter must be Primer")
@@ -49,14 +46,34 @@ func _catalog() -> int:
 		if not pp.has(need):
 			push_error("missing passive %s" % need)
 			return 1
-	var ek: Array = Catalog.enemy_kinds()
-	if ek.size() > 4 or not ek.has("collector") or not ek.has("overdue"):
-		push_error("enemy family should include overdue patrons and the Fine Collector")
+	var cp: Array = Catalog.curse_patterns()
+	if not cp.has("errata") or not cp.has("misfile"):
+		push_error("missing Errata/Misfile identities")
 		return 1
+	var colo: Dictionary = Catalog.make_passive("colophon")
+	if str(colo.get("effect", "")) != "firerate":
+		push_error("Colophon must be fire rate")
+		return 1
+	var stamp: Dictionary = Catalog.make_passive("overdue")
+	if str(stamp.get("effect", "")) != "damage":
+		push_error("Overdue stamp must be damage up")
+		return 1
+	var ek: Array = Catalog.enemy_kinds()
+	if not ek.has("collector") or not ek.has("patron") or not ek.has("burst"):
+		push_error("enemy family should be overdue patrons plus Fine Collector")
+		return 1
+	for k in ek:
+		var e: Dictionary = Catalog.enemy_template(str(k), 2.0)
+		if float(e.hp) <= 0.0:
+			push_error("bad enemy %s" % k)
+			return 1
+		if str(k) != "collector" and str(e.name) != "Overdue Patron":
+			push_error("zoo name %s" % e.name)
+			return 1
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var strong := 0
-	var taxed := 0
+	var cursed := 0
 	for _i in 40:
 		var unid: Dictionary = Catalog.unidentified(rng)
 		if str(unid.tell) == "":
@@ -64,36 +81,28 @@ func _catalog() -> int:
 			return 1
 		var r: Dictionary = Catalog.resolve_floor(rng, true, str(unid.quality), false)
 		var cracked: Dictionary = r.item
-		if str(cracked.get("kind", "")) == "curse":
-			push_error("crack returned a curse card")
-			return 1
 		if str(r.outcome) == "strong":
 			strong += 1
 		elif str(r.outcome) == "taxed":
-			taxed += 1
-			if int(r.get("tax_hp", 0)) <= 0 or int(r.get("extra_pages", 0)) <= 0:
-				push_error("crack tax must include extra pages")
+			cursed += 1
+			if str(cracked.get("kind", "")) != "curse":
+				push_error("crack tax should be Errata or Misfile")
 				return 1
-			if str(r.item.get("rarity", "")) != "rare":
-				push_error("crack tax must include a rarer folio")
+			if int(r.get("extra_pages", 0)) <= 0:
+				push_error("crack curse must include extra pages")
 				return 1
 	var blocked: Dictionary = Catalog.resolve_floor(rng, true, "sour", true)
-	if str(blocked.outcome) == "taxed":
-		push_error("pity failed to block a crack tax")
+	if str(blocked.item.get("kind", "")) == "curse":
+		push_error("pity failed to block a curse")
 		return 1
 	var collate: Dictionary = Catalog.resolve_floor(rng, false, "mixed", false)
-	if int(collate.get("tax_hp", 0)) != 0 or str(collate.item.get("kind", "")) == "curse":
-		push_error("collate must never tax or curse")
+	if str(collate.item.get("kind", "")) == "curse":
+		push_error("collate must never curse")
 		return 1
-	if strong == 0 or taxed == 0:
-		push_error("crack distribution broken strong=%d taxed=%d" % [strong, taxed])
+	if strong == 0 or cursed == 0:
+		push_error("crack distribution broken strong=%d cursed=%d" % [strong, cursed])
 		return 1
-	for k in Catalog.enemy_kinds():
-		var e: Dictionary = Catalog.enemy_template(str(k), 2.0)
-		if float(e.hp) <= 0.0:
-			push_error("bad enemy %s" % k)
-			return 1
-	print("catalog: identities=%d strong=%d taxed=%d pity held" % [Catalog.identity_count(), strong, taxed])
+	print("catalog: identities=%d strong=%d cursed=%d pity held" % [Catalog.identity_count(), strong, cursed])
 	return 0
 
 
@@ -165,9 +174,13 @@ func _copy() -> int:
 	if tag_at < 0 or ar_at < 0 or tag_at > ar_at:
 		push_error("README must lead Steam tags with Bullet Heaven")
 		return 1
-	if readme.to_lower().find("hymnal") >= 0:
-		push_error("README still mentions Hymnal")
+	if readme.to_lower().find("hymnal") < 0:
+		push_error("README missing Hymnal")
 		return 1
+	for zoo in ["magic wand", "garlic", "knife", "bible"]:
+		if readme.to_lower().find(zoo) >= 0:
+			push_error("README invented a generic VS weapon: %s" % zoo)
+			return 1
 	print("copy: banned verbs absent; legal line present; Bullet Heaven first")
 	return 0
 

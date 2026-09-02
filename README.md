@@ -62,11 +62,13 @@ Settings: `user://settings.cfg`. Graveyard: `user://graveyard.json`. Pages and n
 
 ## How to play (v0.1)
 
-- **The Stacks.** One floor. Shelves are lanes. Survive the hour (~12 minutes). Closing Time brings the Fine Collector.
+- **The Stacks.** One floor. Aisles are lanes and cover. Survive ~12 minutes. Closing Time brings the Fine Collector, then the run ends on survive or death.
 - **Permadeath of the run.** No mid-run save.
-- **Five tomes:** Primer (start), Cookbook (aura), Atlas (orbiting open folios), Dictionary (letter-ripple; not first offer), Gazette (spread + knockback).
-- **Level-up** pauses. Three folio cards. One click. Lock is a toggle on the card. No errata, no misfile, no Dictionary or passive on the first offer.
-- **Floor folios:** Collate or Crack. Crack's sting always includes extra pages and a rarer folio.
+- **Six tomes** (max in a run): Primer (start; glyphs / paper darts), Cookbook (close cones / nova), Dictionary (slow pulse: define), Atlas (orbiting pages), Hymnal (wide knockback wave), Gazette (hail of clippings).
+- **Twelve folio identities** include those six, plus Bookplate (magnet), Colophon (fire rate), Dust jacket (armor), Overdue stamp (damage up), Errata (hurtless misfire), Misfile (wrong-tome hiccup).
+- **Level-up** pauses. Three folio cards. One click. Lock is a toggle on the card. Errata and Misfile never sit on that row.
+- **Floor folios:** Collate or Crack. Crack VFX is a book opening. Curses only from Crack, and they come with extra pages.
+- **One enemy family:** overdue patrons — hunched readers and stamped date cards. Variants are faster, tankier, or burst into pages. Not a zoo.
 - **Returns Desk** after the run only. Acquire unidentified folios. Stamp with **pages**. Nothing is for sale. At most three stamps.
 
 `SteamGate` no-ops while `APP_ID` is 0.

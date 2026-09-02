@@ -59,12 +59,15 @@ var folio_ui_open_ms := 0
 var folio_ui_samples: Array = []
 var atlas_orbs: Array = []
 var cookbook_r := 0.0
+var cookbook_cone: Array = []
 var horde_cap := Catalog.HORDE_CAP
 var far_throttle := false
 var perf_stage := 0
 var tick_i := 0
 var last_dt := 0.016
 var locked_hold: Array = []
+var errata_t := 0.0
+var misfile_t := 0.0
 
 var smoke_move := Vector2.ZERO
 
@@ -107,11 +110,14 @@ func new_run(p_seed: int = 0) -> void:
 	offer_index = 0
 	atlas_orbs.clear()
 	cookbook_r = 0.0
+	cookbook_cone.clear()
 	horde_cap = Catalog.HORDE_CAP
 	far_throttle = false
 	perf_stage = 0
 	tick_i = 0
 	locked_hold.clear()
+	errata_t = 0.0
+	misfile_t = 0.0
 	last_identify = {}
 	biggest_find = {"desc": "none", "value": 0}
 	worst_misfile = {"desc": "none", "value": 0}
@@ -165,6 +171,8 @@ func tick(dt: float) -> void:
 	if not surge_started and elapsed >= Catalog.SURGE_AT:
 		_start_surge()
 	player.iframe = maxf(0.0, float(player.iframe) - dt)
+	errata_t = maxf(0.0, errata_t - dt)
+	misfile_t = maxf(0.0, misfile_t - dt)
 	sfx_fire_cd = maxf(0.0, sfx_fire_cd - dt)
 	if float(player.hp) <= 0.0:
 		_end(false)
@@ -231,11 +239,23 @@ func _armor() -> float:
 
 
 func _speed_bonus() -> float:
-	var s := 0.0
+	return 0.0
+
+
+func _fire_rate() -> float:
+	var r := 1.0
+	for p in passives:
+		if str(p.pattern) == "colophon":
+			r += 0.14 * float(int(p.level))
+	return r
+
+
+func _dmg_bonus() -> float:
+	var r := 1.0
 	for p in passives:
 		if str(p.pattern) == "overdue":
-			s += 12.0 * int(p.level)
-	return s
+			r += 0.14 * float(int(p.level))
+	return r
 
 
 func _add_weapon(item: Dictionary) -> void:
@@ -249,7 +269,7 @@ func _add_weapon(item: Dictionary) -> void:
 			return
 	if weapons.size() >= Catalog.MAX_WEAPONS:
 		pages += 2
-		_log("Five tomes already. The folio becomes pages.")
+		_log("Six tomes already. The folio becomes pages.")
 		return
 	var d := Catalog.def_by_pattern(pattern)
 	weapons.append({
@@ -273,7 +293,6 @@ func _add_passive(item: Dictionary) -> void:
 	for p in passives:
 		if str(p.pattern) == pattern:
 			p.level = mini(5, int(p.level) + 1)
-			_apply_passive_hp(pattern)
 			last_slam = str(p.name)
 			_log("%s, thicker." % p.name)
 			return
@@ -287,18 +306,11 @@ func _add_passive(item: Dictionary) -> void:
 		"level": 1,
 		"effect": str(item.get("effect", "")),
 	})
-	_apply_passive_hp(pattern)
 	last_slam = str(item.get("name", "a courtesy"))
 	_log("%s slams onto the shelf." % last_slam)
 
 
-func _apply_passive_hp(pattern: String) -> void:
-	if pattern == "colophon":
-		player.hp_max = float(player.hp_max) + 18.0
-		player.hp = minf(float(player.hp_max), float(player.hp) + 18.0)
-
-
-func _apply_item(item: Dictionary, curse_hp: int = 0) -> void:
+func _apply_item(item: Dictionary, _curse_hp: int = 0) -> void:
 	var kind := str(item.get("kind", ""))
 	match kind:
 		"tome":
@@ -308,65 +320,92 @@ func _apply_item(item: Dictionary, curse_hp: int = 0) -> void:
 			_add_passive(item)
 			_note_find(str(item.name), 6)
 		"curse":
-			var hurt := maxi(curse_hp, 0)
-			if hurt > 0:
-				player.hp = maxf(1.0, float(player.hp) - float(hurt))
-				_note_misfile(str(item.name), hurt)
-				_log("A taxed page. The sting is the fee; the folio still shelves.")
+			_apply_curse(item)
 		_:
 			pages += 1
 
 
+func _apply_curse(item: Dictionary) -> void:
+	var p := str(item.get("pattern", ""))
+	if p == "misfile":
+		misfile_t = maxf(misfile_t, 6.5)
+		_note_misfile("Misfile", 1)
+		_log("Misfile. The wrong tome hiccups.")
+	else:
+		errata_t = maxf(errata_t, 8.0)
+		_note_misfile("Errata", 1)
+		_log("Errata. Hurtless chaos. The glyphs fly wide.")
+	AudioMgr.play("curse")
+
+
 func _weapons_tick(dt: float) -> void:
 	atlas_orbs.clear()
-	cookbook_r = 0.0
+	if cookbook_r > 0.0:
+		cookbook_r = maxf(0.0, cookbook_r - dt * 90.0)
+	var rate := _fire_rate()
 	for w in weapons:
 		var lv := int(w.level)
-		var cd_max: float = maxf(0.18, float(w.cd_max) / (1.0 + 0.07 * float(lv - 1)))
-		match str(w.pattern):
-			"atlas":
-				_atlas_tick(w, dt)
-			"cookbook":
-				_cookbook_tick(w, dt)
-			_:
-				w.cd = float(w.cd) - dt
-				if float(w.cd) <= 0.0:
-					w.cd = cd_max
-					_fire_pattern(w, lv)
+		var cd_max: float = maxf(0.16, float(w.cd_max) / (rate * (1.0 + 0.07 * float(lv - 1))))
+		if str(w.pattern) == "atlas":
+			_atlas_tick(w, dt)
+			continue
+		w.cd = float(w.cd) - dt
+		if float(w.cd) <= 0.0:
+			w.cd = cd_max
+			_fire_pattern(w, lv)
 
 
 func _fire_pattern(w: Dictionary, lv: int) -> void:
-	var dmg := float(w.atk) * (1.0 + 0.16 * float(lv - 1))
+	var pattern := str(w.pattern)
+	if misfile_t > 0.0 and weapons.size() > 1:
+		var other: Dictionary = weapons[rng.randi_range(0, weapons.size() - 1)]
+		pattern = str(other.pattern)
+		lv = int(other.level)
+	var dmg := float(w.atk) * (1.0 + 0.16 * float(lv - 1)) * _dmg_bonus()
 	var face: Vector2 = player.facing
 	if face.length() < 0.2:
 		face = Vector2.RIGHT
 	face = face.normalized()
+	if errata_t > 0.0:
+		face = face.rotated(rng.randf_range(-1.15, 1.15))
 	_maybe_fire_sfx()
-	match str(w.pattern):
+	match pattern:
 		"primer":
 			var n := 1 + lv / 3
 			for i in n:
-				var spread := (float(i) - float(n - 1) * 0.5) * 0.16
+				var spread := (float(i) - float(n - 1) * 0.5) * 0.12
 				var dir := face.rotated(spread)
-				_proj(player.pos + dir * 16.0, dir * 440.0, dmg, 0.72, 6.0, "primer", 0.0, 0.0, 0)
+				_proj(player.pos + dir * 14.0, dir * 460.0, dmg, 0.62, 4.0, "primer", 0.0, 0.0, 0)
+			if errata_t > 0.0:
+				var wild := Vector2.from_angle(rng.randf() * TAU)
+				_proj(player.pos, wild * 380.0, dmg * 0.45, 0.4, 4.0, "primer", 0.0, 0.0, 0)
+		"cookbook":
+			_cookbook_burst(lv, dmg, face)
 		"dictionary":
 			_pulse(dmg, 52.0 + 10.0 * lv, 0.9 + 0.15 * lv)
+		"hymnal":
+			_proj(player.pos + face * 18.0, face * 240.0, dmg, 0.48, 34.0, "hymnal", 120.0 + 10.0 * lv, 0.0, 14)
 		"gazette":
-			var n3 := 7 + lv / 2
+			var n3 := 8 + lv / 2
 			for i in n3:
 				var t := (float(i) / float(maxi(1, n3 - 1))) - 0.5
-				var dir4 := face.rotated(t * 1.35)
-				_proj(player.pos + dir4 * 12.0, dir4 * 340.0, dmg, 0.5, 8.0, "gazette", 48.0 + 8.0 * lv, 0.0, 1)
+				var dir4 := face.rotated(t * 1.4)
+				_proj(player.pos + dir4 * 12.0, dir4 * 360.0, dmg, 0.48, 7.0, "gazette", 0.0, 0.0, 1)
 		_:
 			_proj(player.pos + face * 16.0, face * 400.0, dmg, 0.7, 6.0, "primer", 0.0, 0.0, 0)
 
 
-func _cookbook_tick(w: Dictionary, dt: float) -> void:
-	var lv := int(w.level)
-	var r := 58.0 + 8.0 * float(lv)
+func _cookbook_burst(lv: int, dmg: float, face: Vector2) -> void:
+	var r := 46.0 + 6.0 * float(lv)
 	cookbook_r = r
-	var dmg := float(w.atk) * (1.0 + 0.14 * float(lv - 1)) * dt * 2.8
-	_hurt_circle(player.pos, r, dmg, 6.0, 0.0)
+	_hurt_circle(player.pos, r, dmg * 0.55, 8.0, 0.0)
+	var n := 4 + lv / 2
+	cookbook_cone.clear()
+	for i in n:
+		var t := (float(i) / float(maxi(1, n - 1))) - 0.5
+		var dir := face.rotated(t * 0.72)
+		cookbook_cone.append(dir)
+		_proj(player.pos + dir * 10.0, dir * 300.0, dmg, 0.28, 7.0, "cookbook", 4.0, 0.0, 0)
 
 
 func _atlas_tick(w: Dictionary, dt: float) -> void:
@@ -560,6 +599,9 @@ func _kill_enemy(e: Dictionary) -> void:
 	kills += 1
 	var pos: Vector2 = e.pos
 	_spawn_pickup(Catalog.Pickup.GEM, pos)
+	if bool(e.get("burst", false)):
+		for _i in 4:
+			_spawn_pickup(Catalog.Pickup.GEM, pos + Vector2(rng.randf_range(-18.0, 18.0), rng.randf_range(-18.0, 18.0)))
 	if int(e.get("gold", 0)) > 0 or rng.randf() < 0.14:
 		_spawn_pickup(Catalog.Pickup.GOLD, pos + Vector2(8, -4))
 	if rng.randf() < 0.035:
@@ -761,6 +803,9 @@ func _resolve_floor_folio(crack: bool) -> void:
 		_note_misfile(str(result.item.name), tax)
 		AudioMgr.play("curse")
 		_log("Crack: a fee of %d, and a rarer folio — %s. Extra pages %d." % [tax, result.item.get("name", ""), int(result.extra_pages)])
+	elif str(result.item.get("kind", "")) == "curse":
+		curse_streak += 1
+		_log("The book opens. Extra pages %d, and %s." % [int(result.extra_pages), result.item.get("name", "a curse")])
 	else:
 		if crack:
 			curse_streak = 0

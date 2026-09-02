@@ -19,9 +19,10 @@ func _ready() -> void:
 
 func _setup_horde_meshes() -> void:
 	var kinds := {
-		"patron": {"idx": 2, "sz": 32.0},
-		"overdue": {"idx": 2, "sz": 46.0},
-		"notice": {"idx": 7, "sz": 38.0},
+		"patron": {"idx": 2, "sz": 28.0},
+		"swift": {"idx": 7, "sz": 30.0},
+		"tank": {"idx": 2, "sz": 44.0},
+		"burst": {"idx": 2, "sz": 34.0},
 		"collector": {"idx": 4, "sz": 70.0},
 	}
 	for k in kinds:
@@ -53,7 +54,7 @@ func _process(_dt: float) -> void:
 
 
 func _sync_horde() -> void:
-	var counts := {"patron": 0, "overdue": 0, "notice": 0, "collector": 0}
+	var counts := {"patron": 0, "swift": 0, "tank": 0, "burst": 0, "collector": 0}
 	var p: Vector2 = Game.player.pos if not Game.player.is_empty() else Vector2.ZERO
 	for e in Game.enemies:
 		if float(e.hp) <= 0.0:
@@ -74,8 +75,12 @@ func _sync_horde() -> void:
 		var col := Color.WHITE
 		if float(e.slow_t) > 0.0:
 			col = Color(0.65, 0.75, 1.0)
-		elif k == "overdue":
+		elif k == "tank":
 			col = Color(0.92, 0.78, 0.82)
+		elif k == "swift":
+			col = Color(0.95, 0.9, 0.72)
+		elif k == "burst":
+			col = Color(0.93, 0.88, 0.74)
 		elif k == "collector":
 			col = Color(0.85, 0.7, 0.55)
 		n.multimesh.set_instance_color(i, col)
@@ -145,16 +150,23 @@ func _draw_projectiles() -> void:
 				col = Color(0.45, 0.55, 0.82, 0.35)
 			"gazette":
 				col = Color(0.78, 0.72, 0.55, 0.9)
+			"cookbook":
+				col = Color(0.92, 0.55, 0.22, 0.9)
+			"hymnal":
+				col = Color(0.72, 0.62, 0.88, 0.45)
 		var r: float = float(pr.radius)
 		if bool(pr.get("pulse", false)):
 			draw_arc(pr.pos, r, 0, TAU, 28, Color(0.45, 0.55, 0.82, 0.55), 2.5)
 			draw_arc(pr.pos, r * 0.7, 0.2, TAU * 0.85, 16, Color(0.55, 0.5, 0.35, 0.35), 1.5)
+		elif str(pr.kind) == "hymnal":
+			draw_arc(pr.pos, r, 0, TAU, 18, Color(0.72, 0.62, 0.88, 0.55), 4.0)
+			draw_rect(Rect2(pr.pos.x - r, pr.pos.y - r * 0.35, r * 2.0, r * 0.7), col)
 		else:
 			if str(pr.kind) == "primer":
 				var vel: Vector2 = pr.vel
-				var back := -vel.normalized() * 10.0 if vel.length() > 1.0 else Vector2.LEFT * 10.0
-				draw_rect(Rect2(pr.pos.x + back.x - 3.0, pr.pos.y + back.y - 2.0, 6, 4), Color(0.91, 0.86, 0.76, 0.45))
-			draw_rect(Rect2(pr.pos.x - r * 1.2, pr.pos.y - r * 0.45, r * 2.4, r * 0.9), col)
+				var back := -vel.normalized() * 8.0 if vel.length() > 1.0 else Vector2.LEFT * 8.0
+				draw_rect(Rect2(pr.pos.x + back.x - 2.0, pr.pos.y + back.y - 1.5, 4, 3), Color(0.91, 0.86, 0.76, 0.45))
+			draw_rect(Rect2(pr.pos.x - r * 1.1, pr.pos.y - r * 0.4, r * 2.2, r * 0.8), col)
 
 
 func _draw_atlas() -> void:
@@ -172,15 +184,18 @@ func _draw_cookbook() -> void:
 	if Game.cookbook_r <= 1.0:
 		return
 	var p: Vector2 = Game.player.pos
-	draw_arc(p, Game.cookbook_r, 0, TAU, 32, Color(0.92, 0.55, 0.22, 0.28), 3.0)
-	draw_circle(p, Game.cookbook_r * 0.55, Color(0.95, 0.72, 0.35, 0.08))
+	draw_arc(p, Game.cookbook_r, 0, TAU, 28, Color(0.92, 0.55, 0.22, 0.4), 3.0)
+	draw_circle(p, Game.cookbook_r * 0.4, Color(0.95, 0.72, 0.35, 0.1))
+	for d in Game.cookbook_cone:
+		var dir: Vector2 = d
+		draw_line(p, p + dir * Game.cookbook_r, Color(0.92, 0.5, 0.2, 0.35), 2.0)
 
 
 func _draw_player() -> void:
 	var p: Vector2 = Game.player.pos
 	var hurt := float(Game.player.hp) < float(Game.player.hp_max) * 0.34 or float(Game.player.iframe) > 0.2
 	var spr := 1 if hurt else 0
-	var sz := 36.0
+	var sz := 24.0
 	var dest := Rect2(p.x - sz * 0.5, p.y - sz * 0.5, sz, sz)
 	_blit(ents_tex, spr, dest, Color(1.08, 1.0, 0.9) if not hurt else Color(1.15, 0.72, 0.68))
 
@@ -203,10 +218,12 @@ func _draw_enemies_if_needed(p: Vector2) -> void:
 			continue
 		var sz := 32.0
 		match str(e2.kind):
-			"overdue":
-				sz = 46.0
-			"notice":
-				sz = 38.0
+			"tank":
+				sz = 44.0
+			"swift":
+				sz = 30.0
+			"burst":
+				sz = 34.0
 			"collector":
 				sz = 70.0
 		var dest := Rect2(e2.pos.x - sz * 0.5, e2.pos.y - sz * 0.5, sz, sz)
