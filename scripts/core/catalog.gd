@@ -1,12 +1,12 @@
 class_name Catalog
 extends RefCounted
 
-## v0.1: six tomes, four passives, two curses. Curses never sit on the 3-pick.
+## v0.1: five tomes, four passives, two curses. Hymnal is not standalone. Curses never sit on the 3-pick.
 
 const PITY_CURSES := 2
 const STAGE_SECS := 720.0
 const SURGE_AT := 600.0
-const MAX_WEAPONS := 6
+const MAX_WEAPONS := 5
 const MAX_PASSIVES := 4
 const HORDE_CAP := 300
 const HORDE_SOFT := 200
@@ -61,19 +61,10 @@ static func tome_defs() -> Array:
 			"sprite": 10,
 		},
 		{
-			"pattern": "hymnal",
-			"name": "Hymnal",
-			"effect": "wave",
-			"desc": "A wide knockback wave.",
-			"atk": 9,
-			"cd": 1.25,
-			"sprite": 11,
-		},
-		{
 			"pattern": "gazette",
 			"name": "Gazette",
 			"effect": "spread",
-			"desc": "A hail of clippings in a spread.",
+			"desc": "A hail of clippings that shove.",
 			"atk": 8,
 			"cd": 1.15,
 			"sprite": 11,
@@ -243,7 +234,7 @@ static func first_offer_patterns() -> Array:
 
 
 static func later_tome_patterns() -> Array:
-	return ["cookbook", "atlas", "dictionary", "hymnal", "gazette", "primer"]
+	return ["cookbook", "atlas", "dictionary", "gazette", "primer"]
 
 
 static func random_edition(rng: RandomNumberGenerator, rare: bool, allow_passive: bool, first_offer: bool) -> Dictionary:

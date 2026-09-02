@@ -332,8 +332,6 @@ func _shelf_color(pattern: String) -> Color:
 			return Color(0.22, 0.28, 0.48)
 		"gazette":
 			return Color(0.45, 0.34, 0.12)
-		"hymnal":
-			return Color(0.42, 0.32, 0.52)
 		"primer":
 			return Color(0.62, 0.52, 0.32)
 		_:

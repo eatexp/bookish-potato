@@ -269,7 +269,7 @@ func _add_weapon(item: Dictionary) -> void:
 			return
 	if weapons.size() >= Catalog.MAX_WEAPONS:
 		pages += 2
-		_log("Six tomes already. The folio becomes pages.")
+		_log("Five tomes already. The folio becomes pages.")
 		return
 	var d := Catalog.def_by_pattern(pattern)
 	weapons.append({
@@ -383,14 +383,12 @@ func _fire_pattern(w: Dictionary, lv: int) -> void:
 			_cookbook_burst(lv, dmg, face)
 		"dictionary":
 			_pulse(dmg, 52.0 + 10.0 * lv, 0.9 + 0.15 * lv)
-		"hymnal":
-			_proj(player.pos + face * 18.0, face * 240.0, dmg, 0.48, 34.0, "hymnal", 120.0 + 10.0 * lv, 0.0, 14)
 		"gazette":
 			var n3 := 8 + lv / 2
 			for i in n3:
 				var t := (float(i) / float(maxi(1, n3 - 1))) - 0.5
 				var dir4 := face.rotated(t * 1.4)
-				_proj(player.pos + dir4 * 12.0, dir4 * 360.0, dmg, 0.48, 7.0, "gazette", 0.0, 0.0, 1)
+				_proj(player.pos + dir4 * 12.0, dir4 * 360.0, dmg, 0.48, 8.0, "gazette", 48.0 + 8.0 * lv, 0.0, 1)
 		_:
 			_proj(player.pos + face * 16.0, face * 400.0, dmg, 0.7, 6.0, "primer", 0.0, 0.0, 0)
 

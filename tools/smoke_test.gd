@@ -17,23 +17,23 @@ func _run() -> void:
 		push_error("SMOKE FAILED (%d)" % failures)
 		quit(1)
 	else:
-		print("SMOKE OK six tomes, 12 identities, curses off the 3-pick")
+		print("SMOKE OK five tomes, curses off the 3-pick")
 		quit(0)
 
 
 func _catalog() -> int:
-	if Catalog.MAX_WEAPONS != 6:
-		push_error("max tomes should be 6")
+	if Catalog.MAX_WEAPONS != 5:
+		push_error("max tomes should be 5")
 		return 1
 	if Catalog.HORDE_CAP != 300:
 		push_error("horde cap should be 300")
 		return 1
-	if Catalog.identity_count() != 12:
-		push_error("identity count %d should be 12" % Catalog.identity_count())
+	if Catalog.identity_count() != 11:
+		push_error("identity count %d should be 5 tomes + 4 passives + 2 curses" % Catalog.identity_count())
 		return 1
 	var tp: Array = Catalog.tome_patterns()
-	if tp.size() != 6 or not tp.has("hymnal") or not tp.has("gazette") or not tp.has("primer"):
-		push_error("six tomes: primer cookbook dictionary atlas hymnal gazette")
+	if tp.size() != 5 or tp.has("hymnal") or not tp.has("gazette") or not tp.has("primer"):
+		push_error("five tomes: primer cookbook atlas dictionary gazette")
 		return 1
 	if str(Catalog.starter_tome().get("pattern", "")) != "primer":
 		push_error("starter must be Primer")
@@ -174,8 +174,12 @@ func _copy() -> int:
 	if tag_at < 0 or ar_at < 0 or tag_at > ar_at:
 		push_error("README must lead Steam tags with Bullet Heaven")
 		return 1
-	if readme.to_lower().find("hymnal") < 0:
-		push_error("README missing Hymnal")
+	if readme.to_lower().find("hymnal") >= 0:
+		push_error("README still treats Hymnal as a tome")
+		return 1
+	var how := FileAccess.get_file_as_string("res://scripts/ui/how_to_play.gd")
+	if how.to_lower().find("six tomes") >= 0 or how.to_lower().find("hymnal") >= 0:
+		push_error("How to Play still says six tomes or Hymnal")
 		return 1
 	for zoo in ["magic wand", "garlic", "knife", "bible"]:
 		if readme.to_lower().find(zoo) >= 0:

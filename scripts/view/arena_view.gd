@@ -152,15 +152,10 @@ func _draw_projectiles() -> void:
 				col = Color(0.78, 0.72, 0.55, 0.9)
 			"cookbook":
 				col = Color(0.92, 0.55, 0.22, 0.9)
-			"hymnal":
-				col = Color(0.72, 0.62, 0.88, 0.45)
 		var r: float = float(pr.radius)
 		if bool(pr.get("pulse", false)):
 			draw_arc(pr.pos, r, 0, TAU, 28, Color(0.45, 0.55, 0.82, 0.55), 2.5)
 			draw_arc(pr.pos, r * 0.7, 0.2, TAU * 0.85, 16, Color(0.55, 0.5, 0.35, 0.35), 1.5)
-		elif str(pr.kind) == "hymnal":
-			draw_arc(pr.pos, r, 0, TAU, 18, Color(0.72, 0.62, 0.88, 0.55), 4.0)
-			draw_rect(Rect2(pr.pos.x - r, pr.pos.y - r * 0.35, r * 2.0, r * 0.7), col)
 		else:
 			if str(pr.kind) == "primer":
 				var vel: Vector2 = pr.vel

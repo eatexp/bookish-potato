@@ -5,13 +5,12 @@ A 2D bullet heaven on one floor of The Stacks.
 
 You are a potato sprite with a library card. Move with WASD. Primer fires itself — small glyphs and paper darts the way you face. XP from overdue patrons fills the bar. Three identified folio cards. One click. The floor pauses.
 
-Six tomes (max in a run)
+Five tomes (max in a run)
 • Primer — start. Glyphs / paper darts in the facing direction.
 • Cookbook — close fire cones and a recipe nova.
-• Dictionary — a slow pulse. Define.
 • Atlas — pages orbit the potato.
-• Hymnal — a wide knockback wave.
-• Gazette — a hail of clippings in a spread.
+• Dictionary — a slow pulse. Define. Never the first offer.
+• Gazette — a hail of clippings that shove.
 
 The first folio draw is Cookbook or Atlas. Dictionary and passives wait. Errata and Misfile never sit on that row.
 

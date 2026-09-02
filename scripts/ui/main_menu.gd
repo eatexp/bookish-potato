@@ -37,7 +37,7 @@ func _build() -> void:
 	sub.size = Vector2(1000, 28)
 	add_child(sub)
 
-	var tag := UiKit.lbl("The Stacks. Six tomes. Overdue patrons. Collate or crack a folio.", 15, UiKit.DIM)
+	var tag := UiKit.lbl("The Stacks. Five tomes. Overdue patrons. Collate or crack a folio.", 15, UiKit.DIM)
 	tag.position = Vector2(80, 122)
 	tag.size = Vector2(1100, 28)
 	add_child(tag)
